@@ -20,11 +20,10 @@ import shlex
 import subprocess
 from typing import Any, Dict, Mapping
 
-from . import Backend
 from .. import types as _types
 
 
-class ClaudeCliBackend(Backend):
+class ClaudeCliBackend:
     def _command(self) -> str:
         return os.getenv("LLM_BACKEND_ANTHROPIC_COMMAND", "claude")
 
@@ -75,10 +74,24 @@ class ClaudeCliBackend(Backend):
 
         prompt = self._build_prompt(messages)
 
+        # Derive a Claude CLI model name. The router gives us `model_id`
+        # (e.g. "anthropic/claude-opus-4-5") and `model_name`
+        # (e.g. "Opus 4.5"). The CLI typically expects short aliases
+        # like "opus", "sonnet", "haiku".
+        raw_router = rr.raw or {}
+        model_name = str(raw_router.get("model_name") or "").lower()
+        cli_model = rr.model
+        if "opus" in model_name:
+            cli_model = "opus"
+        elif "sonnet" in model_name:
+            cli_model = "sonnet"
+        elif "haiku" in model_name:
+            cli_model = "haiku"
+
         args = shlex.split(cmd_str)
         args += [
             "--model",
-            rr.model,
+            cli_model,
             "--output-format",
             "json",
             "--print",
