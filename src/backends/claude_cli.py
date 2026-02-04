@@ -15,6 +15,7 @@ work correctly, the `model_id` value for anthropic rows in
 
 from __future__ import annotations
 
+import json
 import os
 import shlex
 import subprocess
@@ -115,13 +116,23 @@ class ClaudeCliBackend:
 
         raw = proc.stdout
 
-        # The Claude CLI with --output-format json returns a JSON object.
-        # We don't know its exact schema ahead of time, so we return the
-        # raw JSON string under `raw_json` and set `content` to the
-        # entire text output for now. Callers can refine this once the
-        # concrete schema is known.
+        # The Claude CLI with --output-format json returns a JSON object
+        # with a top-level `result` field that contains the
+        # human-facing text we care about.
+        text_content: str
+        try:
+            parsed = json.loads(raw)
+            if isinstance(parsed, dict) and isinstance(parsed.get("result"), str):
+                text_content = parsed["result"]
+            else:
+                # Fallback: just return the raw stdout if the shape
+                # isn't what we expect.
+                text_content = raw.strip()
+        except json.JSONDecodeError:
+            text_content = raw.strip()
+
         return {
-            "content": raw.strip(),
+            "content": text_content,
             "role": "assistant",
             "raw_json": raw,
         }
