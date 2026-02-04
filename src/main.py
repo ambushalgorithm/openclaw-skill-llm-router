@@ -57,8 +57,15 @@ def main() -> None:
 
     options = request.get("options") or {}
 
+    # Optional cost hint for the router's budget tracking.
+    est_cost = options.get("estimated_cost_usd")
+    try:
+        est_cost_f = float(est_cost) if est_cost is not None else None
+    except (TypeError, ValueError):
+        est_cost_f = None
+
     # Call router to pick provider/model/backend.
-    router_result = router_client.route(category=category)
+    router_result = router_client.route(category=category, estimated_cost_usd=est_cost_f)
 
     backend = get_backend_for_router_result(router_result)
 

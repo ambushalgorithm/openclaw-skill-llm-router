@@ -41,17 +41,32 @@ def get_router_command() -> str:
     return cmd
 
 
-def route(category: str) -> Dict[str, Any]:
+def route(category: str, *, variant: str | None = None, estimated_cost_usd: float | None = None) -> Dict[str, Any]:
+    """Call the external llm-router in OpenClaw mode.
+
+    We construct the JSON payload expected by router.py and pass it on
+    stdin to the configured command.
+    """
+
     cmd = get_router_command()
-    # Allow the env var to contain spaces/flags; shlex.split keeps it flexible.
-    parts = shlex.split(cmd) + ["--category", category]
+
+    task: Dict[str, Any] = {
+        "mode": "OpenClaw",
+        "category": category,
+        "variant": variant or "Default",
+        "prompt": "",  # prompt is currently not used by the router
+        "meta": {},
+    }
+    if estimated_cost_usd is not None:
+        task["meta"]["estimated_cost_usd"] = float(estimated_cost_usd)
 
     try:
         proc = subprocess.run(
-            parts,
+            shlex.split(cmd),
             check=False,
             capture_output=True,
             text=True,
+            input=json.dumps(task),
         )
     except OSError as e:
         raise RouterError(f"Failed to execute llm-router command: {e}") from e

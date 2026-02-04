@@ -16,6 +16,7 @@ from __future__ import annotations
 from typing import Any, Dict, Mapping
 
 from .. import types as _types
+from .claude_cli import ClaudeCliBackend
 
 
 class Backend:
@@ -39,10 +40,18 @@ class NotImplementedBackend(Backend):
 def get_backend_for_router_result(router_result: Mapping[str, Any]) -> Backend:
     """Return an appropriate Backend instance for the given router result.
 
-    For now, this is a stub that always returns NotImplementedBackend.
-    Actual instances should dispatch based on fields like `provider`
-    and/or `backend` once concrete adapters are added.
+    Dispatch is based on the router's `provider` / `backend` fields.
+    For now we support anthropic via the Claude CLI and fall back to a
+    "not implemented" backend otherwise.
     """
 
-    # TODO: wire up real dispatch logic once we know the router's schema.
+    rr = _types.coerce_router_result(router_result)
+    backend_key = (rr.provider or "").lower()
+    backend_hint = (rr.backend or "").lower() if rr.backend is not None else ""
+
+    # Anthropic via Claude CLI
+    if backend_key == "anthropic" or backend_hint == "claude-cli":
+        return ClaudeCliBackend()
+
+    # TODO: add more backends (openai-cli, http, etc.) as needed.
     return NotImplementedBackend()

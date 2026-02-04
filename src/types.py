@@ -14,18 +14,22 @@ from typing import Any, Dict, Mapping
 @dataclass
 class RouterResult:
     provider: str
-    model: str
+    model: str  # concrete model identifier (e.g. provider/model_id)
     backend: str | None = None
     raw: Dict[str, Any] | None = None
 
 
 def coerce_router_result(data: Mapping[str, Any]) -> RouterResult:
     provider = str(data.get("provider", "")).strip()
-    model = str(data.get("model", "")).strip()
+
+    # llm-router currently returns "model_id" and "model_name"; we treat
+    # `model_id` as the concrete identifier to pass to backends, and
+    # fall back to `model_name` if needed.
+    model = str(data.get("model_id") or data.get("model") or data.get("model_name") or "").strip()
     backend = data.get("backend")
 
     if not provider or not model:
-        raise ValueError("Router result must include non-empty 'provider' and 'model'.")
+        raise ValueError("Router result must include non-empty 'provider' and 'model_id'/'model'.")
 
     return RouterResult(
         provider=provider,
