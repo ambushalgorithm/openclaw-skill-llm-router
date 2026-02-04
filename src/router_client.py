@@ -1,91 +1,38 @@
-"""Thin client for calling the external llm-router CLI.
+"""Internal router client.
 
-This module is intentionally minimal and path-agnostic. The concrete
-router command is provided via the `LLM_ROUTER_COMMAND` environment
-variable, which should include any fixed flags (e.g. `--mode openclaw`).
-
-The router is expected to:
-- Accept a `--category <name>` argument.
-- Emit a single JSON object to stdout describing the chosen backend.
-
-Example router JSON (illustrative only):
-
-    {
-        "provider": "anthropic",
-        "model": "claude-3.7-sonnet",
-        "backend": "claude-cli",
-        "extra": {"max_context": 200000}
-    }
-
-The exact schema is up to your router; this module just passes it
-through as a dict.
+Instead of shelling out to an external `llm-router` repo, this module
+calls the embedded router logic in :mod:`router_core`.
 """
 
 from __future__ import annotations
 
-import json
-import os
-import shlex
-import subprocess
 from typing import Any, Dict
+
+from . import router_core
 
 
 class RouterError(RuntimeError):
     pass
 
 
-def get_router_command() -> str:
-    cmd = os.getenv("LLM_ROUTER_COMMAND")
-    if not cmd:
-        raise RouterError("LLM_ROUTER_COMMAND is not set; cannot call llm-router.")
-    return cmd
-
-
 def route(category: str, *, variant: str | None = None, estimated_cost_usd: float | None = None) -> Dict[str, Any]:
-    """Call the external llm-router in OpenClaw mode.
-
-    We construct the JSON payload expected by router.py and pass it on
-    stdin to the configured command.
-    """
-
-    cmd = get_router_command()
+    """Route a task using the embedded OpenClaw-mode router logic."""
 
     task: Dict[str, Any] = {
         "mode": "OpenClaw",
         "category": category,
         "variant": variant or "Default",
-        "prompt": "",  # prompt is currently not used by the router
+        "prompt": "",  # not used for routing yet
         "meta": {},
     }
     if estimated_cost_usd is not None:
         task["meta"]["estimated_cost_usd"] = float(estimated_cost_usd)
 
-    try:
-        proc = subprocess.run(
-            shlex.split(cmd),
-            check=False,
-            capture_output=True,
-            text=True,
-            input=json.dumps(task),
-        )
-    except OSError as e:
-        raise RouterError(f"Failed to execute llm-router command: {e}") from e
+    result = router_core.route_openclaw(task)
 
-    if proc.returncode != 0:
-        raise RouterError(
-            f"llm-router exited with {proc.returncode}: {proc.stderr.strip()}"
-        )
+    if result.get("status") != "ok":
+        # Surface routing errors as exceptions so callers can decide how
+        # to handle them (fallback, user-facing message, etc.).
+        raise RouterError(str(result))
 
-    stdout = proc.stdout.strip()
-    if not stdout:
-        raise RouterError("llm-router produced no output on stdout.")
-
-    try:
-        data = json.loads(stdout)
-    except json.JSONDecodeError as e:
-        raise RouterError(f"llm-router output is not valid JSON: {e}\nOutput: {stdout}") from e
-
-    if not isinstance(data, dict):
-        raise RouterError(f"llm-router JSON output must be an object, got: {type(data)!r}")
-
-    return data
+    return result

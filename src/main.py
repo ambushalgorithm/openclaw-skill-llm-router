@@ -23,6 +23,7 @@ from typing import Any, Dict
 
 from . import router_client
 from . import types
+from . import router_core
 from .backends import get_backend_for_router_result
 
 
@@ -45,6 +46,13 @@ def read_request() -> Dict[str, Any]:
 
 
 def main() -> None:
+    # Status mode: inspect budgets/usage instead of routing a task
+    if any(arg in ("--status", "-s") for arg in sys.argv[1:]):
+        summary = router_core.status_summary()
+        json.dump(summary, sys.stdout)
+        sys.stdout.write("\n")
+        return
+
     request = read_request()
 
     category = request.get("category") or os.getenv("LLM_ROUTER_DEFAULT_CATEGORY")
