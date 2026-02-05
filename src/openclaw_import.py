@@ -195,6 +195,15 @@ def import_openclaw_usage(
 
                     tokens_in, tokens_out = _extract_tokens(usage)
 
+                    # Preserve original OpenClaw timestamp (ms since epoch)
+                    # so "today" and monthly accounting are correct.
+                    ts_ms = None
+                    try:
+                        ts_raw = msg.get("timestamp")
+                        ts_ms = int(ts_raw) if ts_raw is not None else None
+                    except Exception:
+                        ts_ms = None
+
                     # Append to router ledger + legacy accumulator.
                     router_core.log_usage_event(
                         mode=mode,
@@ -206,6 +215,7 @@ def import_openclaw_usage(
                         tokens_out=tokens_out,
                         is_estimate=False,
                         source=f"{source_prefix}:{file_path.name}",
+                        ts_ms=ts_ms,
                     )
                     stats.events_appended += 1
 

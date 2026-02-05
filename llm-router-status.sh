@@ -25,7 +25,7 @@ python3 -m src.main --status \
     '.modes.OpenClaw | to_entries[] | select(.value.limit_usd > 0)
      | [.key, .value.used_usd, .value.limit_usd, (.value.limit_usd - .value.used_usd), (100 * (.value.used_usd / .value.limit_usd))]
      | @tsv' \
-  | awk 'BEGIN {
+  | awk -F'\t' 'BEGIN {
            printf "%-18s %-12s %-12s %-14s %s\n", "Category", "$ Used", "$ Limit", "$ Remaining", "%"
          }
          {

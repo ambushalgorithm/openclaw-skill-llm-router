@@ -212,6 +212,7 @@ def log_usage_event(
     tokens_out: Optional[int] = None,
     is_estimate: bool = False,
     source: Optional[str] = None,
+    ts_ms: Optional[int] = None,
     usage_path: Path | None = None,
     ledger_path: Path | None = None,
 ) -> UsageEvent:
@@ -220,7 +221,7 @@ def log_usage_event(
     This is the mechanism that makes unified tracking possible.
     """
 
-    ts_ms = int(datetime.now(timezone.utc).timestamp() * 1000)
+    ts_ms = int(ts_ms) if ts_ms is not None else int(datetime.now(timezone.utc).timestamp() * 1000)
     ev = UsageEvent(
         ts_ms=ts_ms,
         mode=mode,
