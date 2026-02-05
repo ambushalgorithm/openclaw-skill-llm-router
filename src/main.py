@@ -56,8 +56,11 @@ def main() -> None:
 
     # Import OpenClaw transcripts into the unified ledger (no LLM calls).
     if any(arg in ("--import-openclaw-usage",) for arg in sys.argv[1:]):
-        # Read optional JSON config from stdin; tolerate empty stdin.
-        raw = sys.stdin.read()
+        # Read optional JSON config from stdin.
+        # If stdin is a TTY, do not block waiting for EOF.
+        raw = ""
+        if not sys.stdin.isatty():
+            raw = sys.stdin.read()
         cfg = {}
         if raw.strip():
             try:
