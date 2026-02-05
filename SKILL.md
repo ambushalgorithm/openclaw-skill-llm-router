@@ -102,6 +102,25 @@ cd ~/Projects/openclaw-skill-llm-router
 ./llm-router-status.sh --raw  # raw JSON
 ```
 
+### Log usage events (unified tracking)
+
+You can append a usage event into the router's canonical ledger (useful for
+"direct/no-router" calls):
+
+```bash
+echo '{
+  "mode": "OpenClaw",
+  "category": "Brain",
+  "provider": "openai",
+  "model": "gpt-5.2",
+  "tokens_in": 123,
+  "tokens_out": 45,
+  "cost_usd": 0.001,
+  "is_estimate": true,
+  "source": "direct-no-router"
+}' | python3 -m src.main --log-usage | jq
+```
+
 Typical environment variables:
 
 - `LLM_ROUTER_COMMAND` — full CLI used to call the router, e.g.:
@@ -113,6 +132,9 @@ Typical environment variables:
 - Defaults and limits:
   - `LLM_ROUTER_DEFAULT_CATEGORY="Brain"`
   - `LLM_SKILL_MAX_TOKENS=4000`
+- Unified usage tracking:
+  - `LLM_ROUTER_LEDGER_PATH` — JSONL event ledger path (default: `~/.llm-router-ledger.jsonl`).
+  - `LLM_ROUTER_TZ` — timezone used for "today" totals in `--status` (default: `America/Bogota`).
 
 The concrete environment variable names and supported backends are defined in this repo's `src/` implementation.
 

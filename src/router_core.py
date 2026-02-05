@@ -23,7 +23,9 @@ import json
 import os
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Iterable
+from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
 
 
 # ---------------------------------------------------------------------------
@@ -33,6 +35,7 @@ from typing import Any, Dict, Optional
 REPO_ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_CSV_PATH = REPO_ROOT / "config" / "model_routing.csv"
 DEFAULT_USAGE_PATH = Path.home() / ".llm-router-usage.json"
+DEFAULT_LEDGER_PATH = Path.home() / ".llm-router-ledger.jsonl"
 
 OPENCLAW_MODE = "OpenClaw"
 EXTERNAL_CALL_MODE = "External"  # Reserved; not implemented.
@@ -46,6 +49,11 @@ def _csv_path() -> Path:
 def _usage_path() -> Path:
     override = os.getenv("LLM_ROUTER_USAGE_PATH")
     return Path(override).expanduser() if override else DEFAULT_USAGE_PATH
+
+
+def _ledger_path() -> Path:
+    override = os.getenv("LLM_ROUTER_LEDGER_PATH")
+    return Path(override).expanduser() if override else DEFAULT_LEDGER_PATH
 
 
 # ---------------------------------------------------------------------------
@@ -106,6 +114,135 @@ class Usage:
     def add(self, mode: str, category: str, cost_usd: float) -> None:
         mode_map = self.data.setdefault(mode, {})
         mode_map[category] = float(mode_map.get(category, 0.0) + float(cost_usd))
+
+
+@dataclass
+class UsageEvent:
+    """Single usage record for unified tracking.
+
+    The router is the canonical ledger. Events may be exact or estimated.
+    """
+
+    ts_ms: int
+    mode: str
+    category: str
+    provider: Optional[str] = None
+    model: Optional[str] = None
+    cost_usd: float = 0.0
+    tokens_in: Optional[int] = None
+    tokens_out: Optional[int] = None
+    is_estimate: bool = False
+    source: Optional[str] = None
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "ts_ms": int(self.ts_ms),
+            "mode": self.mode,
+            "category": self.category,
+            "provider": self.provider,
+            "model": self.model,
+            "cost_usd": float(self.cost_usd),
+            "tokens_in": self.tokens_in,
+            "tokens_out": self.tokens_out,
+            "is_estimate": bool(self.is_estimate),
+            "source": self.source,
+        }
+
+
+def append_ledger_event(event: UsageEvent, *, ledger_path: Path | None = None) -> None:
+    path = ledger_path or _ledger_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("a", encoding="utf-8") as f:
+        f.write(json.dumps(event.to_dict(), ensure_ascii=False))
+        f.write("\n")
+
+
+def iter_ledger_events(*, ledger_path: Path | None = None) -> Iterable[Dict[str, Any]]:
+    path = ledger_path or _ledger_path()
+    if not path.exists():
+        return []
+
+    def _iter() -> Iterable[Dict[str, Any]]:
+        with path.open("r", encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    obj = json.loads(line)
+                except Exception:
+                    continue
+                if isinstance(obj, dict):
+                    yield obj
+
+    return _iter()
+
+
+def _is_same_local_day(ts_ms: int, *, tz_name: str, day_start: datetime) -> bool:
+    tz = ZoneInfo(tz_name)
+    dt = datetime.fromtimestamp(ts_ms / 1000.0, tz=timezone.utc).astimezone(tz)
+    return dt.date() == day_start.date()
+
+
+def today_total_usd(*, tz_name: str = "America/Bogota", ledger_path: Path | None = None) -> float:
+    tz = ZoneInfo(tz_name)
+    now_local = datetime.now(timezone.utc).astimezone(tz)
+    total = 0.0
+    for ev in iter_ledger_events(ledger_path=ledger_path):
+        try:
+            ts_ms = int(ev.get("ts_ms") or 0)
+            cost = float(ev.get("cost_usd") or 0.0)
+        except Exception:
+            continue
+        if ts_ms <= 0:
+            continue
+        if _is_same_local_day(ts_ms, tz_name=tz_name, day_start=now_local):
+            total += cost
+    return float(total)
+
+
+def log_usage_event(
+    *,
+    mode: str,
+    category: str,
+    cost_usd: float,
+    provider: Optional[str] = None,
+    model: Optional[str] = None,
+    tokens_in: Optional[int] = None,
+    tokens_out: Optional[int] = None,
+    is_estimate: bool = False,
+    source: Optional[str] = None,
+    usage_path: Path | None = None,
+    ledger_path: Path | None = None,
+) -> UsageEvent:
+    """Append to the canonical ledger *and* update the legacy usage accumulator.
+
+    This is the mechanism that makes unified tracking possible.
+    """
+
+    ts_ms = int(datetime.now(timezone.utc).timestamp() * 1000)
+    ev = UsageEvent(
+        ts_ms=ts_ms,
+        mode=mode,
+        category=category,
+        provider=provider,
+        model=model,
+        cost_usd=float(cost_usd),
+        tokens_in=tokens_in,
+        tokens_out=tokens_out,
+        is_estimate=bool(is_estimate),
+        source=source,
+    )
+
+    append_ledger_event(ev, ledger_path=ledger_path)
+
+    # Back-compat: keep the old accumulator updated so existing status tooling works.
+    if float(cost_usd) > 0:
+        usage = Usage.load(usage_path or _usage_path())
+        usage.add(mode, category, float(cost_usd))
+        usage.save(usage_path or _usage_path())
+
+    return ev
 
 
 # ---------------------------------------------------------------------------
@@ -292,11 +429,21 @@ def route_openclaw(task: Dict[str, Any], *, csv_path: Path | None = None, usage_
                     "threshold_usd": threshold,
                 })
 
-    # Update usage if we got an estimate
+    # Update usage/ledger if we got an estimate
     if estimated_cost > 0:
-        usage.add(OPENCLAW_MODE, category, estimated_cost)
-        usage.save(usage_path or _usage_path())
+        log_usage_event(
+            mode=OPENCLAW_MODE,
+            category=category,
+            cost_usd=estimated_cost,
+            provider=model_info["provider"],
+            model=model_info["model_name"],
+            is_estimate=True,
+            source="openclaw-router-plan",
+            usage_path=usage_path or _usage_path(),
+        )
 
+    # Reload usage to reflect the update (log_usage_event persists it)
+    usage = Usage.load(usage_path or _usage_path())
     used_now = usage.get_used(OPENCLAW_MODE, category)
 
     result: Dict[str, Any] = {
@@ -355,5 +502,11 @@ def status_summary(*, csv_path: Path | None = None, usage_path: Path | None = No
             }
 
         summary["modes"][mode] = mode_summary
+
+    tz_name = os.getenv("LLM_ROUTER_TZ") or "America/Bogota"
+    summary["today"] = {
+        "tz": tz_name,
+        "total_usd": today_total_usd(tz_name=tz_name),
+    }
 
     return summary

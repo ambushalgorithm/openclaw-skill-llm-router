@@ -53,6 +53,35 @@ def main() -> None:
         sys.stdout.write("\n")
         return
 
+    # Unified usage ingestion (for direct/no-router calls or external bookkeeping)
+    if any(arg in ("--log-usage", "--ingest-usage") for arg in sys.argv[1:]):
+        payload = read_request()
+        mode = str(payload.get("mode") or router_core.OPENCLAW_MODE)
+        category = str(payload.get("category") or "").strip() or "Uncategorized"
+        cost_usd = float(payload.get("cost_usd") or 0.0)
+        provider = payload.get("provider")
+        model = payload.get("model")
+        tokens_in = payload.get("tokens_in")
+        tokens_out = payload.get("tokens_out")
+        is_estimate = bool(payload.get("is_estimate") or False)
+        source = payload.get("source")
+
+        ev = router_core.log_usage_event(
+            mode=mode,
+            category=category,
+            cost_usd=cost_usd,
+            provider=provider,
+            model=model,
+            tokens_in=int(tokens_in) if tokens_in is not None else None,
+            tokens_out=int(tokens_out) if tokens_out is not None else None,
+            is_estimate=is_estimate,
+            source=source,
+        )
+
+        json.dump({"status": "ok", "event": ev.to_dict()}, sys.stdout)
+        sys.stdout.write("\n")
+        return
+
     request = read_request()
 
     category = request.get("category") or os.getenv("LLM_ROUTER_DEFAULT_CATEGORY")
