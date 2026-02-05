@@ -22,11 +22,13 @@ import os
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, Iterable, Iterator, Optional, Tuple
+import re
 
 from . import router_core
 
 
 DEFAULT_CATEGORY = "Brain"
+PRIMARY_LLM_CATEGORY = "Primary LLM"
 
 
 def _openclaw_state_dir() -> Path:
@@ -100,6 +102,54 @@ def iter_transcript_files(state_dir: Path, *, max_files: Optional[int] = None) -
         return files
 
     return _gather()
+
+
+_CAT_RE = re.compile(r"\bCat(?:egory)?\s*=\s*([^|\n]+)")
+_DIRECT_RE = re.compile(r"\bDirect\s*\(no router\)\b", re.IGNORECASE)
+
+
+def _extract_text(message: Any) -> str:
+    if not isinstance(message, dict):
+        return ""
+    content = message.get("content")
+    if isinstance(content, str):
+        return content
+    if isinstance(content, list):
+        parts = []
+        for p in content:
+            if isinstance(p, dict):
+                # OpenClaw uses {type:"text", text:"..."}
+                t = p.get("text")
+                if isinstance(t, str):
+                    parts.append(t)
+        return "\n".join([s for s in parts if s])
+    return ""
+
+
+def _infer_category_from_text(text: str) -> Optional[str]:
+    if not text:
+        return None
+
+    # If Henry printed a header, parse it.
+    # Examples we support:
+    #  - "Router: Cat=Coding | ..."
+    #  - "Direct (no router): ..."  -> Primary LLM
+    if _DIRECT_RE.search(text):
+        return PRIMARY_LLM_CATEGORY
+
+    m = _CAT_RE.search(text)
+    if m:
+        cat = m.group(1).strip()
+        # normalize common variants
+        if cat.lower() in ("web", "websearch", "web search"):
+            return "Web Search"
+        if cat.lower() in ("writing", "writing content"):
+            return "Writing Content"
+        if cat.lower() in ("image", "image understanding"):
+            return "Image Understanding"
+        return cat
+
+    return None
 
 
 def _extract_usage_cost_total(usage: Any) -> Optional[float]:
@@ -193,6 +243,10 @@ def import_openclaw_usage(
                     if not provider or not model or cost_total is None:
                         continue
 
+                    text = _extract_text(msg)
+                    inferred_cat = _infer_category_from_text(text)
+                    event_category = inferred_cat or category
+
                     tokens_in, tokens_out = _extract_tokens(usage)
 
                     # Preserve original OpenClaw timestamp (ms since epoch)
@@ -207,7 +261,7 @@ def import_openclaw_usage(
                     # Append to router ledger + legacy accumulator.
                     router_core.log_usage_event(
                         mode=mode,
-                        category=category,
+                        category=event_category,
                         cost_usd=cost_total,
                         provider=provider,
                         model=model,

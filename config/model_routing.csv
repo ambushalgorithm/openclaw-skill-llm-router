@@ -6,3 +6,4 @@ Web Search,Claude Sonnet 4.5 (Venice),venice,venice/claude-sonnet-4-5,venice:def
 Writing Content,Claude Sonnet 4.5 (Venice),venice,venice/claude-sonnet-4-5,venice:default,Claude Sonnet 4.5,anthropic,anthropic/claude-sonnet-4-5,anthropic:default,Claude Sonnet 4.5,anthropic,anthropic/claude-sonnet-4-5,anthropic:default,Secondary,30,30
 Voice,ChatGPT 4o Realtime,openai,openai/gpt-4o-realtime,openai:manual,Claude Sonnet 4.5,anthropic,anthropic/claude-sonnet-4-5,anthropic:default,ChatGPT 4o Realtime,openai,openai/gpt-4o-realtime,openai:manual,Secondary,30,30
 Image Understanding,Opus 4.5,anthropic,anthropic/claude-opus-4-5,anthropic:default,Claude Sonnet 4.5,anthropic,anthropic/claude-sonnet-4-5,anthropic:default,Gemini 2.5 Flash,google,google/gemini-2.5-flash,google:default,Secondary,30,30
+Primary LLM,GPT 5.2,openai,openai/gpt-5.2,openai:default,GPT 5.2,openai,openai/gpt-5.2,openai:default,GPT 5.2,openai,openai/gpt-5.2,openai:default,Primary,30,30
