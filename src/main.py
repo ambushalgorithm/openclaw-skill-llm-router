@@ -25,6 +25,7 @@ from . import router_client
 from . import types
 from . import router_core
 from .backends import get_backend_for_router_result
+from .openclaw_import import import_openclaw_usage
 
 
 def read_request() -> Dict[str, Any]:
@@ -50,6 +51,28 @@ def main() -> None:
     if any(arg in ("--status", "-s") for arg in sys.argv[1:]):
         summary = router_core.status_summary()
         json.dump(summary, sys.stdout)
+        sys.stdout.write("\n")
+        return
+
+    # Import OpenClaw transcripts into the unified ledger (no LLM calls).
+    if any(arg in ("--import-openclaw-usage",) for arg in sys.argv[1:]):
+        # Read optional JSON config from stdin; tolerate empty stdin.
+        raw = sys.stdin.read()
+        cfg = {}
+        if raw.strip():
+            try:
+                cfg = json.loads(raw)
+            except json.JSONDecodeError as e:
+                raise SystemExit(f"Invalid JSON input: {e}") from e
+        category = (cfg.get("category") or "Brain")
+        mode = (cfg.get("mode") or router_core.OPENCLAW_MODE)
+        max_files = cfg.get("max_files")
+        result = import_openclaw_usage(
+            category=str(category),
+            mode=str(mode),
+            max_files=int(max_files) if max_files is not None else None,
+        )
+        json.dump(result, sys.stdout)
         sys.stdout.write("\n")
         return
 
