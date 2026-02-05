@@ -75,6 +75,33 @@ Agents should generally use `response.content` as the assistant text and treat `
 
 This skill is **path-agnostic**. All integration details are provided via environment variables or a config file when wiring it into an OpenClaw instance.
 
+## CLI helpers (recommended)
+
+This repo includes a small status helper script you can run from anywhere.
+
+### Aliases
+
+Add these to your shell config (`~/.bashrc`, `~/.zshrc`, etc.):
+
+```bash
+# Raw usage counters (USD by mode/category)
+alias llm-router-usage='cat ~/.llm-router-usage.json | jq'
+
+# Pretty table: Category, $ Used, $ Limit, $ Remaining, %
+alias llm-router-status='$HOME/Projects/openclaw-skill-llm-router/llm-router-status.sh'
+
+# Raw status JSON (limits/used/remaining by category) with jq formatting
+alias llm-router-status-raw='(cd ~/Projects/openclaw-skill-llm-router && python3 -m src.main --status | jq)'
+```
+
+### Direct usage (no aliases)
+
+```bash
+cd ~/Projects/openclaw-skill-llm-router
+./llm-router-status.sh        # table
+./llm-router-status.sh --raw  # raw JSON
+```
+
 Typical environment variables:
 
 - `LLM_ROUTER_COMMAND` — full CLI used to call the router, e.g.:
