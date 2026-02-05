@@ -105,7 +105,13 @@ cd ~/Projects/openclaw-skill-llm-router
 ### Log usage events (unified tracking)
 
 You can append a usage event into the router's canonical ledger (useful for
-"direct/no-router" calls):
+"direct/no-router" calls).
+
+For per-category tracking from OpenClaw transcripts, ensure assistant replies
+include a first-line header like:
+
+- `Router: Category=Coding`
+- `Direct (no router): Category=Primary LLM`
 
 ```bash
 echo '{

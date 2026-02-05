@@ -104,8 +104,14 @@ def iter_transcript_files(state_dir: Path, *, max_files: Optional[int] = None) -
     return _gather()
 
 
-_CAT_RE = re.compile(r"\bCat(?:egory)?\s*=\s*([^|\n]+)")
-_DIRECT_RE = re.compile(r"\bDirect\s*\(no router\)\b", re.IGNORECASE)
+# Header formats we treat as canonical (first line of assistant message):
+#   Router: Category=<CategoryName>
+#   Direct (no router): Category=Primary LLM
+_ROUTER_CAT_RE = re.compile(r"(?m)^Router:\s*Category\s*=\s*([^\n|]+)")
+_DIRECT_PRIMARY_RE = re.compile(
+    r"(?mi)^Direct\s*\(no router\):\s*Category\s*=\s*Primary LLM\s*$",
+)
+_DIRECT_NO_ROUTER_RE = re.compile(r"\bDirect\s*\(no router\)\b", re.IGNORECASE)
 
 
 def _extract_text(message: Any) -> str:
@@ -130,14 +136,11 @@ def _infer_category_from_text(text: str) -> Optional[str]:
     if not text:
         return None
 
-    # If Henry printed a header, parse it.
-    # Examples we support:
-    #  - "Router: Cat=Coding | ..."
-    #  - "Direct (no router): ..."  -> Primary LLM
-    if _DIRECT_RE.search(text):
+    # Canonical direct/no-router header.
+    if _DIRECT_PRIMARY_RE.search(text) or _DIRECT_NO_ROUTER_RE.search(text):
         return PRIMARY_LLM_CATEGORY
 
-    m = _CAT_RE.search(text)
+    m = _ROUTER_CAT_RE.search(text)
     if m:
         cat = m.group(1).strip()
         # normalize common variants
