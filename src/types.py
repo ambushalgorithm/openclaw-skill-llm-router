@@ -51,6 +51,9 @@ def normalize_response(*, router_result: Mapping[str, Any] | RouterResult, backe
 
     Additional backend-specific fields are passed through under
     `raw.backend`.
+
+    The content is prefixed with a router category header for usage tracking:
+        Router: Category=<Category>
     """
 
     if not isinstance(router_result, RouterResult):
@@ -67,13 +70,17 @@ def normalize_response(*, router_result: Mapping[str, Any] | RouterResult, backe
     raw_backend.pop("content", None)
     raw_backend.pop("role", None)
 
+    # Inject router category header for usage tracking
+    header = f"Router: Category={category}"
+    content_with_header = f"{header}\n{content}"
+
     return {
         "provider": router_result.provider,
         "model": router_result.model,
         "category": category,
         "response": {
             "role": role,
-            "content": content,
+            "content": content_with_header,
         },
         "raw": {
             "router": router_result.raw or {},
