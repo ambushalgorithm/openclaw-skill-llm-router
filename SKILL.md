@@ -92,6 +92,9 @@ alias llm-router-status='$HOME/Projects/openclaw-skill-llm-router/llm-router-sta
 
 # Raw status JSON (limits/used/remaining by category) with jq formatting
 alias llm-router-status-raw='(cd ~/Projects/openclaw-skill-llm-router && python3 -m src.main --status | jq)'
+
+# Pretty ledger log: Recent entries with timestamp, category, provider, cost
+alias llm-router-status-log='$HOME/Projects/openclaw-skill-llm-router/llm-router-status-log.sh'
 ```
 
 ### Direct usage (no aliases)
