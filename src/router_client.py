@@ -15,14 +15,14 @@ class RouterError(RuntimeError):
     pass
 
 
-def route(category: str, *, variant: str | None = None, estimated_cost_usd: float | None = None) -> Dict[str, Any]:
+def route(category: str, *, variant: str | None = None, estimated_cost_usd: float | None = None, prompt: str | None = None) -> Dict[str, Any]:
     """Route a task using the embedded OpenClaw-mode router logic."""
 
     task: Dict[str, Any] = {
         "mode": "OpenClaw",
         "category": category,
         "variant": variant or "Default",
-        "prompt": "",  # not used for routing yet
+        "prompt": prompt or "",  # may contain explicit Model=... hints
         "meta": {},
     }
     if estimated_cost_usd is not None:

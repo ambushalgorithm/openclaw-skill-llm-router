@@ -322,6 +322,37 @@ def normalize_variant(raw_variant: Optional[str], cfg: CategoryConfig) -> str:
     return raw_variant
 
 
+def parse_explicit_model(prompt: str) -> Optional[Dict[str, Optional[str]]]:
+    """Parse explicit model hints like 'Model=anthropic/claude-sonnet-4-5' from prompt.
+
+    Returns a dict with model info if found, None otherwise.
+    """
+    import re
+    if not prompt:
+        return None
+
+    # Match patterns like: Model=provider/model-id or Model=provider/model/name
+    match = re.search(r'Model=([\w\-./:]+)', prompt, re.IGNORECASE)
+    if not match:
+        return None
+
+    model_spec = match.group(1)
+    parts = model_spec.split('/')
+
+    if len(parts) >= 2:
+        provider = parts[0]
+        model_name = model_spec  # Keep full path as model name
+        model_id = model_spec
+        return {
+            "model_name": model_name,
+            "provider": provider,
+            "model_id": model_id,
+            "profile": None,  # Could be extended to parse Profile=... hints too
+        }
+
+    return None
+
+
 def pick_model(cfg: CategoryConfig, variant: str) -> Dict[str, Optional[str]]:
     if variant == "Primary":
         return {
@@ -376,8 +407,12 @@ def route_openclaw(task: Dict[str, Any], *, csv_path: Path | None = None, usage_
     raw_variant = task.get("variant")
     requested_variant = normalize_variant(raw_variant, cfg)
 
-    # Enforce Secondary-only policy for now, regardless of requested/default variant.
-    variant = "Secondary"
+    # Use the requested/default variant (respects CSV config)
+    variant = requested_variant
+
+    # Check for explicit model hint in the prompt
+    prompt = task.get("prompt") or ""
+    explicit_model = parse_explicit_model(prompt)
 
     meta = task.get("meta") or {}
     estimated_cost = float(meta.get("estimated_cost_usd") or 0.0)
@@ -387,7 +422,11 @@ def route_openclaw(task: Dict[str, Any], *, csv_path: Path | None = None, usage_
     used_before = usage.get_used(OPENCLAW_MODE, category)
     remaining = budget_limit - used_before
 
-    model_info = pick_model(cfg, variant)
+    # If explicit model is specified, use it; otherwise pick from CSV based on variant
+    if explicit_model:
+        model_info = explicit_model
+    else:
+        model_info = pick_model(cfg, variant)
 
     # If cost estimate would exceed budget, refuse
     if budget_limit > 0 and estimated_cost > 0 and (used_before + estimated_cost) > budget_limit:

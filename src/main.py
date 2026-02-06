@@ -127,8 +127,17 @@ def main() -> None:
     except (TypeError, ValueError):
         est_cost_f = None
 
+    # Build prompt from messages for explicit model hint parsing (e.g., "Model=anthropic/claude-sonnet-4-5")
+    prompt_parts = []
+    for m in messages:
+        role = m.get("role", "")
+        content = m.get("content", "")
+        if content:
+            prompt_parts.append(f"{role}: {content}")
+    prompt = " ".join(prompt_parts)
+
     # Call router to pick provider/model/backend.
-    router_result = router_client.route(category=category, estimated_cost_usd=est_cost_f)
+    router_result = router_client.route(category=category, estimated_cost_usd=est_cost_f, prompt=prompt)
 
     backend = get_backend_for_router_result(router_result)
 
