@@ -17,6 +17,7 @@ from typing import Any, Dict, Mapping
 
 from .. import types as _types
 from .claude_cli import ClaudeCliBackend
+from .ollama_cli import OllamaCliBackend
 
 
 class Backend:
@@ -52,6 +53,10 @@ def get_backend_for_router_result(router_result: Mapping[str, Any]) -> Backend:
     # Anthropic via Claude CLI
     if backend_key == "anthropic" or backend_hint == "claude-cli":
         return ClaudeCliBackend()
+
+    # Ollama (local and cloud)
+    if backend_key == "ollama":
+        return OllamaCliBackend()
 
     # TODO: add more backends (openai-cli, http, etc.) as needed.
     return NotImplementedBackend()

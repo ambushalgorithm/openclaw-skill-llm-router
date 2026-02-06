@@ -92,6 +92,7 @@ def main() -> None:
         is_estimate = bool(payload.get("is_estimate") or False)
         source = payload.get("source")
 
+        units_other = payload.get("units_other")
         ev = router_core.log_usage_event(
             mode=mode,
             category=category,
@@ -102,6 +103,7 @@ def main() -> None:
             tokens_out=int(tokens_out) if tokens_out is not None else None,
             is_estimate=is_estimate,
             source=source,
+            units_other=units_other,
         )
 
         json.dump({"status": "ok", "event": ev.to_dict()}, sys.stdout)
@@ -159,8 +161,9 @@ def main() -> None:
                 model=router_result.get("model_name"),
                 tokens_in=response.get("tokens_in"),
                 tokens_out=response.get("tokens_out"),
-                is_estimate=False,
+                is_estimate=response.get("is_estimate", False),
                 source="openclaw-skill-execution",
+                units_other=response.get("units_other"),
             )
         except Exception:
             # Don't fail the request if logging errors out

@@ -121,6 +121,7 @@ class UsageEvent:
     """Single usage record for unified tracking.
 
     The router is the canonical ledger. Events may be exact or estimated.
+    Supports hybrid tracking for subscription-based providers like Ollama Cloud.
     """
 
     ts_ms: int
@@ -133,9 +134,10 @@ class UsageEvent:
     tokens_out: Optional[int] = None
     is_estimate: bool = False
     source: Optional[str] = None
+    units_other: Optional[Dict[str, Any]] = None  # For non-dollar units (e.g., session %)
 
     def to_dict(self) -> Dict[str, Any]:
-        return {
+        result: Dict[str, Any] = {
             "ts_ms": int(self.ts_ms),
             "mode": self.mode,
             "category": self.category,
@@ -147,6 +149,9 @@ class UsageEvent:
             "is_estimate": bool(self.is_estimate),
             "source": self.source,
         }
+        if self.units_other is not None:
+            result["units_other"] = self.units_other
+        return result
 
 
 def append_ledger_event(event: UsageEvent, *, ledger_path: Path | None = None) -> None:
@@ -212,6 +217,7 @@ def log_usage_event(
     tokens_out: Optional[int] = None,
     is_estimate: bool = False,
     source: Optional[str] = None,
+    units_other: Optional[Dict[str, Any]] = None,
     ts_ms: Optional[int] = None,
     usage_path: Path | None = None,
     ledger_path: Path | None = None,
