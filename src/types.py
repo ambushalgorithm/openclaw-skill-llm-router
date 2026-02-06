@@ -74,7 +74,7 @@ def normalize_response(*, router_result: Mapping[str, Any] | RouterResult, backe
     header = f"Router: Category={category}"
     content_with_header = f"{header}\n{content}"
 
-    return {
+    result = {
         "provider": router_result.provider,
         "model": router_result.model,
         "category": category,
@@ -87,3 +87,10 @@ def normalize_response(*, router_result: Mapping[str, Any] | RouterResult, backe
             "backend": raw_backend,
         },
     }
+
+    # Include quota warnings if present
+    quota_warnings = backend_response.get("quota_warnings")
+    if quota_warnings:
+        result["quota_warnings"] = quota_warnings
+
+    return result

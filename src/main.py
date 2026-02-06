@@ -26,6 +26,7 @@ from . import types
 from . import router_core
 from .backends import get_backend_for_router_result
 from .openclaw_import import import_openclaw_usage
+from .quota_tracker import get_ollama_status, QuotaTracker
 
 
 def read_request() -> Dict[str, Any]:
@@ -51,6 +52,31 @@ def main() -> None:
     if any(arg in ("--status", "-s") for arg in sys.argv[1:]):
         summary = router_core.status_summary()
         json.dump(summary, sys.stdout)
+        sys.stdout.write("\n")
+        return
+
+    # Quota status mode: check subscription-based quotas (Ollama Cloud, etc.)
+    if any(arg in ("--quota", "-q") for arg in sys.argv[1:]):
+        ollama_status = get_ollama_status()
+        json.dump({"status": "ok", "quotas": {"ollama": ollama_status}}, sys.stdout)
+        sys.stdout.write("\n")
+        return
+
+    # Adjust quota limits manually (e.g., from dashboard observation)
+    if any(arg in ("--adjust-quota",) for arg in sys.argv[1:]):
+        raw = sys.stdin.read() if not sys.stdin.isatty() else ""
+        cfg = {}
+        if raw.strip():
+            try:
+                cfg = json.loads(raw)
+            except json.JSONDecodeError as e:
+                raise SystemExit(f"Invalid JSON input: {e}") from e
+        provider = cfg.get("provider", "ollama")
+        session_tokens = cfg.get("session_tokens")
+        weekly_tokens = cfg.get("weekly_tokens")
+        tracker = QuotaTracker()
+        tracker.adjust_limits(provider, session_tokens=session_tokens, weekly_tokens=weekly_tokens)
+        json.dump({"status": "ok", "provider": provider, "adjusted": True}, sys.stdout)
         sys.stdout.write("\n")
         return
 

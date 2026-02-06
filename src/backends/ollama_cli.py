@@ -18,9 +18,10 @@ import json
 import os
 import shlex
 import subprocess
-from typing import Any, Dict, Mapping, Optional
+from typing import Any, Dict, Mapping, Optional, List
 
 from .. import types as _types
+from ..quota_tracker import check_ollama_quota
 
 
 class OllamaCliBackend:
@@ -140,7 +141,10 @@ class OllamaCliBackend:
         total_tokens = tokens_in + tokens_out
         estimated_cost = (total_tokens / 1000) * self.ESTIMATED_COST_PER_1K_TOKENS
 
-        return {
+        # Check quota and get warnings
+        quota_warnings = check_ollama_quota(tokens_in, tokens_out)
+
+        result_payload = {
             "content": text_content,
             "role": "assistant",
             "raw_json": raw if 'raw' in dir() else None,
@@ -150,9 +154,15 @@ class OllamaCliBackend:
             "is_estimate": True,
             "units_other": {
                 "type": "ollama_usage",
+                "total_tokens": total_tokens,
                 "description": "Ollama Cloud subscription usage - see dashboard for limits",
             },
         }
+
+        if quota_warnings:
+            result_payload["quota_warnings"] = quota_warnings
+
+        return result_payload
 
     def _run_via_api(
         self,
@@ -207,7 +217,10 @@ class OllamaCliBackend:
             total_tokens = tokens_in + tokens_out
             estimated_cost = (total_tokens / 1000) * self.ESTIMATED_COST_PER_1K_TOKENS
 
-            return {
+            # Check quota and get warnings
+            quota_warnings = check_ollama_quota(tokens_in, tokens_out)
+
+            result_payload = {
                 "content": text_content,
                 "role": "assistant",
                 "raw_json": json.dumps(result),
@@ -217,9 +230,15 @@ class OllamaCliBackend:
                 "is_estimate": True,
                 "units_other": {
                     "type": "ollama_usage",
+                    "total_tokens": total_tokens,
                     "description": "Ollama Cloud subscription usage - see dashboard for limits",
                 },
             }
+
+            if quota_warnings:
+                result_payload["quota_warnings"] = quota_warnings
+
+            return result_payload
 
         except urllib.error.URLError as e:
             raise RuntimeError(f"Failed to connect to Ollama API at {host}: {e}")
