@@ -147,6 +147,25 @@ def main() -> None:
         options=options,
     )
 
+    # Log actual usage from backend response (if available)
+    actual_cost = response.get("cost_usd")
+    if actual_cost is not None:
+        try:
+            router_core.log_usage_event(
+                mode=router_core.OPENCLAW_MODE,
+                category=category,
+                cost_usd=float(actual_cost),
+                provider=router_result.get("provider"),
+                model=router_result.get("model_name"),
+                tokens_in=response.get("tokens_in"),
+                tokens_out=response.get("tokens_out"),
+                is_estimate=False,
+                source="openclaw-skill-execution",
+            )
+        except Exception:
+            # Don't fail the request if logging errors out
+            pass
+
     # Ensure we emit a normalized payload.
     normalized = types.normalize_response(
         router_result=router_result,

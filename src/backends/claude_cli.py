@@ -120,6 +120,7 @@ class ClaudeCliBackend:
         # with a top-level `result` field that contains the
         # human-facing text we care about.
         text_content: str
+        parsed: dict = {}
         try:
             parsed = json.loads(raw)
             if isinstance(parsed, dict) and isinstance(parsed.get("result"), str):
@@ -131,8 +132,22 @@ class ClaudeCliBackend:
         except json.JSONDecodeError:
             text_content = raw.strip()
 
+        # Extract usage/cost info for upstream logging
+        cost_usd: float | None = None
+        tokens_in: int | None = None
+        tokens_out: int | None = None
+        if isinstance(parsed, dict):
+            cost_usd = parsed.get("total_cost_usd")
+            usage = parsed.get("usage")
+            if isinstance(usage, dict):
+                tokens_in = usage.get("input_tokens")
+                tokens_out = usage.get("output_tokens")
+
         return {
             "content": text_content,
             "role": "assistant",
             "raw_json": raw,
+            "cost_usd": cost_usd,
+            "tokens_in": tokens_in,
+            "tokens_out": tokens_out,
         }
