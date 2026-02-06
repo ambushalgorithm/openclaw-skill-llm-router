@@ -1,0 +1,26 @@
+{
+  "ollama": {
+    "provider": "ollama",
+    "description": "Ollama Cloud Pro subscription limits",
+    "windows": {
+      "session": {
+        "name": "session",
+        "limit_tokens": 500000,
+        "reset_hours": 3,
+        "description": "Per-session token limit (resets every 3 hours)"
+      },
+      "weekly": {
+        "name": "weekly", 
+        "limit_tokens": 5000000,
+        "reset_days": 7,
+        "description": "Weekly token limit (resets every 7 days)"
+      }
+    },
+    "warning_thresholds": [0.50, 0.75, 0.90, 0.95],
+    "cost_estimate": {
+      "per_1k_tokens_usd": 0.0001,
+      "description": "Estimated cost for ledger tracking (not actual billing)"
+    }
+  },
+  "_comment": "Adjust these limits based on your actual Ollama Cloud Pro dashboard. The reset times are estimates — actual resets may vary based on your subscription cycle."
+}

@@ -1,12 +1,8 @@
 """Quota tracking for subscription-based providers (Ollama Cloud, etc.).
 
 Implements token-based limits with warning thresholds.
-Based on Ollama Cloud Pro limits observed in practice:
-- Session: ~X tokens per session (resets every few hours)
-- Weekly: ~Y tokens per week (resets every 7 days)
-
-Since exact limits aren't exposed via API, we estimate from user data
-and track cumulative usage with configurable thresholds.
+Configuration is loaded from config/quota_defaults.json and can be
+overridden via manual adjustments.
 """
 
 from __future__ import annotations
@@ -20,13 +16,45 @@ from typing import Any, Dict, Optional, List
 
 
 DEFAULT_QUOTA_PATH = Path.home() / ".llm-router-quota.json"
+DEFAULT_CONFIG_PATH = Path(__file__).parent.parent / "config" / "quota_defaults.json"
 
-# Estimated Ollama Cloud Pro limits based on typical usage patterns
-# These are estimates - adjust based on actual observed limits
-DEFAULT_OLLAMA_SESSION_TOKENS = 500_000  # Per session (~2-4 hour window)
-DEFAULT_OLLAMA_WEEKLY_TOKENS = 5_000_000  # Per week
+# Default Ollama Cloud Pro limits (used if config file missing)
+DEFAULT_OLLAMA_SESSION_TOKENS = 500_000
+DEFAULT_OLLAMA_WEEKLY_TOKENS = 5_000_000
+DEFAULT_SESSION_RESET_HOURS = 3
+DEFAULT_WEEKLY_RESET_DAYS = 7
 
-WARNING_THRESHOLDS = [0.50, 0.75, 0.90, 0.95]  # 50%, 75%, 90%, 95%
+WARNING_THRESHOLDS = [0.50, 0.75, 0.90, 0.95]
+
+
+def load_quota_config(config_path: Optional[Path] = None) -> Dict[str, Any]:
+    """Load quota configuration from JSON file."""
+    path = config_path or DEFAULT_CONFIG_PATH
+    if not path.exists():
+        return {}
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return {}
+
+
+def get_ollama_config(config: Dict[str, Any]) -> Dict[str, Any]:
+    """Extract Ollama limits from config with fallbacks."""
+    ollama_cfg = config.get("ollama", {})
+    windows = ollama_cfg.get("windows", {})
+    
+    session_cfg = windows.get("session", {})
+    weekly_cfg = windows.get("weekly", {})
+    
+    return {
+        "session_tokens": session_cfg.get("limit_tokens", DEFAULT_OLLAMA_SESSION_TOKENS),
+        "weekly_tokens": weekly_cfg.get("limit_tokens", DEFAULT_OLLAMA_WEEKLY_TOKENS),
+        "session_reset_hours": session_cfg.get("reset_hours", DEFAULT_SESSION_RESET_HOURS),
+        "weekly_reset_days": weekly_cfg.get("reset_days", DEFAULT_WEEKLY_RESET_DAYS),
+        "warning_thresholds": ollama_cfg.get("warning_thresholds", WARNING_THRESHOLDS),
+        "cost_per_1k_usd": ollama_cfg.get("cost_estimate", {}).get("per_1k_tokens_usd", 0.0001),
+    }
 
 
 @dataclass
@@ -37,6 +65,11 @@ class QuotaWindow:
     used_tokens: int = 0
     reset_at: Optional[str] = None  # ISO timestamp
     last_warning_fraction: float = 0.0  # Last threshold we warned at
+    _warning_thresholds: List[float] = None  # Configurable thresholds
+
+    def __post_init__(self):
+        if self._warning_thresholds is None:
+            self._warning_thresholds = WARNING_THRESHOLDS
 
     def remaining(self) -> int:
         return max(0, self.limit_tokens - self.used_tokens)
@@ -51,7 +84,7 @@ class QuotaWindow:
         warnings = []
         current_fraction = self.fraction_used()
 
-        for threshold in WARNING_THRESHOLDS:
+        for threshold in self._warning_thresholds:
             if self.last_warning_fraction < threshold <= current_fraction:
                 pct = int(threshold * 100)
                 remaining_pct = int((1 - threshold) * 100)
@@ -126,8 +159,9 @@ class ProviderQuota:
 class QuotaTracker:
     """Tracks subscription-based quotas separately from dollar-based budgets."""
 
-    def __init__(self, quota_path: Optional[Path] = None):
+    def __init__(self, quota_path: Optional[Path] = None, config_path: Optional[Path] = None):
         self.quota_path = quota_path or DEFAULT_QUOTA_PATH
+        self._config = load_quota_config(config_path)
         self._data: Dict[str, ProviderQuota] = {}
         self._load()
 
@@ -153,25 +187,29 @@ class QuotaTracker:
             )
 
     def _get_or_create_ollama(self) -> ProviderQuota:
+        cfg = get_ollama_config(self._config)
+        
         if "ollama" not in self._data:
             now = datetime.now(timezone.utc)
-            session_reset = (now + timedelta(hours=3)).isoformat()
-            weekly_reset = (now + timedelta(days=7)).isoformat()
+            session_reset = (now + timedelta(hours=cfg["session_reset_hours"])).isoformat()
+            weekly_reset = (now + timedelta(days=cfg["weekly_reset_days"])).isoformat()
 
             self._data["ollama"] = ProviderQuota(
                 provider="ollama",
                 windows={
                     "session": QuotaWindow(
                         name="session",
-                        limit_tokens=DEFAULT_OLLAMA_SESSION_TOKENS,
+                        limit_tokens=cfg["session_tokens"],
                         used_tokens=0,
                         reset_at=session_reset,
+                        _warning_thresholds=cfg["warning_thresholds"],
                     ),
                     "weekly": QuotaWindow(
                         name="weekly",
-                        limit_tokens=DEFAULT_OLLAMA_WEEKLY_TOKENS,
+                        limit_tokens=cfg["weekly_tokens"],
                         used_tokens=0,
                         reset_at=weekly_reset,
+                        _warning_thresholds=cfg["warning_thresholds"],
                     ),
                 },
             )
@@ -189,6 +227,7 @@ class QuotaTracker:
         total_tokens = tokens_in + tokens_out
 
         if provider.lower() == "ollama":
+            cfg = get_ollama_config(self._config)
             quota = self._get_or_create_ollama()
             now = datetime.now(timezone.utc)
 
@@ -202,9 +241,9 @@ class QuotaTracker:
                             window.used_tokens = 0
                             window.last_warning_fraction = 0.0
                             if window_name == "session":
-                                window.reset_at = (now + timedelta(hours=3)).isoformat()
+                                window.reset_at = (now + timedelta(hours=cfg["session_reset_hours"])).isoformat()
                             else:
-                                window.reset_at = (now + timedelta(days=7)).isoformat()
+                                window.reset_at = (now + timedelta(days=cfg["weekly_reset_days"])).isoformat()
                     except Exception:
                         pass
 
@@ -253,18 +292,29 @@ class QuotaTracker:
                 quota.windows["weekly"].limit_tokens = weekly_tokens
             self._save()
 
+    def reload_config(self, config_path: Optional[Path] = None) -> None:
+        """Reload configuration from disk (useful after manual edits)."""
+        self._config = load_quota_config(config_path)
+
 
 def check_ollama_quota(
     tokens_in: int,
     tokens_out: int,
     quota_path: Optional[Path] = None,
+    config_path: Optional[Path] = None,
 ) -> List[str]:
     """Convenience function to check Ollama quota and get warnings."""
-    tracker = QuotaTracker(quota_path)
+    tracker = QuotaTracker(quota_path, config_path)
     return tracker.record_usage("ollama", tokens_in, tokens_out)
 
 
-def get_ollama_status(quota_path: Optional[Path] = None) -> Dict[str, Any]:
+def get_ollama_status(quota_path: Optional[Path] = None, config_path: Optional[Path] = None) -> Dict[str, Any]:
     """Get current Ollama quota status."""
-    tracker = QuotaTracker(quota_path)
+    tracker = QuotaTracker(quota_path, config_path)
     return tracker.get_status("ollama")
+
+
+def reload_ollama_config(config_path: Optional[Path] = None) -> None:
+    """Reload quota configuration from disk."""
+    tracker = QuotaTracker(config_path=config_path)
+    tracker.reload_config(config_path)

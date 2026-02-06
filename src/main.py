@@ -26,7 +26,7 @@ from . import types
 from . import router_core
 from .backends import get_backend_for_router_result
 from .openclaw_import import import_openclaw_usage
-from .quota_tracker import get_ollama_status, QuotaTracker
+from .quota_tracker import get_ollama_status, QuotaTracker, reload_ollama_config
 
 
 def read_request() -> Dict[str, Any]:
