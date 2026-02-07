@@ -27,8 +27,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Dict, List, Optional, Any, Set
 
-from prompt_classifier import classify_prompt, Tier, ClassificationResult
-from prompt_classifier.types import Tier as TierType
+from .prompt_classifier import classify_prompt, Tier, ClassificationResult
+from .prompt_classifier.types import Tier as TierType
 
 
 # Tier to capability requirements mapping (from models.yaml tier_profiles)

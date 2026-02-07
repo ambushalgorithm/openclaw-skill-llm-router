@@ -70,6 +70,9 @@ class OllamaCliBackend:
         # Get model from router result
         raw_router = rr.raw or {}
         model = rr.model or raw_router.get("model_name", "llama3.2")
+        # Strip provider prefix if present (e.g., "ollama/kimi-k2.5" -> "kimi-k2.5")
+        if model and "/" in model:
+            model = model.split("/", 1)[1]
 
         # Build messages
         ollama_messages = self._build_messages_payload(messages)

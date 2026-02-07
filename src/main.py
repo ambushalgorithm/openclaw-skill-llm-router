@@ -3,14 +3,11 @@
 
 This is a thin CLI wrapper that:
 - Reads a single JSON request from stdin (or an optional file/arg in future).
-- Calls the llm-router via a configured command.
+- Routes to the appropriate LLM using capability-aware router v2 (with legacy fallback).
 - Dispatches to the appropriate LLM backend adapter.
 - Writes a normalized JSON response to stdout.
 
 The detailed behavior and configuration are documented in SKILL.md.
-
-This file is a skeleton; backend- and router-specific logic still needs to be
-implemented.
 """
 
 from __future__ import annotations
@@ -19,14 +16,17 @@ import json
 import os
 import subprocess
 import sys
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 from . import router_client
-from . import types
 from . import router_core
+from . import types
 from .backends import get_backend_for_router_result
 from .openclaw_import import import_openclaw_usage
 from .quota_tracker import get_ollama_status, QuotaTracker, reload_ollama_config
+
+# Router v2 imports
+from .router_v2 import Router as RouterV2, RoutingRequest as RoutingRequestV2
 
 
 def read_request() -> Dict[str, Any]:
@@ -54,6 +54,139 @@ def _get_view_mode(args: list[str]) -> str:
     if "--normalized" in args:
         return "normalized"
     return "combined"  # default
+
+
+def _estimate_tokens(text: str) -> int:
+    """Rough token estimation: ~4 chars per token for English text."""
+    if not text:
+        return 0
+    return len(text) // 4
+
+
+def _build_prompt_from_messages(messages: list[Dict[str, Any]]) -> str:
+    """Build a single prompt string from chat messages."""
+    prompt_parts = []
+    for m in messages:
+        role = m.get("role", "")
+        content = m.get("content", "")
+        if content:
+            prompt_parts.append(f"{role}: {content}")
+    return " ".join(prompt_parts)
+
+
+def _route_with_v2(
+    category: str,
+    prompt: str,
+    messages: list[Dict[str, Any]],
+    estimated_cost_usd: Optional[float] = None,
+) -> Optional[Dict[str, Any]]:
+    """Try to route using router v2 (capability-aware).
+
+    Returns a router result dict compatible with legacy format, or None if v2 fails.
+    """
+    try:
+        # Initialize v2 router (loads policy, catalog, etc.)
+        router = RouterV2()
+
+        # Estimate tokens from prompt
+        estimated_tokens = _estimate_tokens(prompt)
+
+        # Build routing request
+        request = RoutingRequestV2(
+            prompt=prompt,
+            category_hint=category,
+            estimated_tokens=estimated_tokens,
+            max_cost_per_1k=estimated_cost_usd * 1000 if estimated_cost_usd else None,
+        )
+
+        # Route via v2
+        result = router.route(request)
+
+        # Map v2 result to legacy-compatible dict
+        # Backends expect: provider, model_id (full format for Ollama, short for Anthropic)
+        router_result = {
+            "provider": result.provider,
+            "model_id": result.model_id,  # e.g., "ollama/kimi-k2.5" or "anthropic/claude-sonnet-4-5"
+            "model_name": result.model_name,
+            "tier": result.tier,
+            "confidence": result.confidence,
+            # Include v2 metadata for debugging
+            "_v2": {
+                "capabilities": sorted(result.capabilities),
+                "signals": result.classification_signals,
+                "reason": result.reason,
+                "candidates_considered": result.candidates_considered,
+                "quota_limited": result.quota_limited,
+                "policy_applied": result.policy_applied,
+            },
+        }
+
+        return router_result
+
+    except Exception as e:
+        # V2 routing failed - return None to trigger legacy fallback
+        # In debug mode, we could log this
+        if os.getenv("LLM_ROUTER_DEBUG"):
+            print(f"[DEBUG] V2 routing failed: {e}", file=sys.stderr)
+        return None
+
+
+def _route_with_legacy(
+    category: str,
+    prompt: str,
+    estimated_cost_usd: Optional[float] = None,
+) -> Dict[str, Any]:
+    """Route using legacy router (router_client)."""
+    return router_client.route(
+        category=category,
+        estimated_cost_usd=estimated_cost_usd,
+        prompt=prompt,
+    )
+
+
+def route_with_fallback(
+    category: str,
+    prompt: str,
+    messages: list[Dict[str, Any]],
+    estimated_cost_usd: Optional[float] = None,
+    prefer_v2: bool = True,
+) -> Dict[str, Any]:
+    """Route a request, preferring v2 with fallback to legacy.
+
+    Args:
+        category: The routing category (e.g., "Coding", "Brain")
+        prompt: The combined prompt text
+        messages: Original message list for token estimation
+        estimated_cost_usd: Optional cost hint
+        prefer_v2: If True, try v2 first; if False, use legacy only
+
+    Returns:
+        Router result dict compatible with existing backends
+    """
+    router_result = None
+
+    if prefer_v2:
+        # Try v2 first
+        router_result = _route_with_v2(
+            category=category,
+            prompt=prompt,
+            messages=messages,
+            estimated_cost_usd=estimated_cost_usd,
+        )
+
+    # Fall back to legacy if v2 failed or v2 is disabled
+    if router_result is None:
+        router_result = _route_with_legacy(
+            category=category,
+            prompt=prompt,
+            estimated_cost_usd=estimated_cost_usd,
+        )
+        # Mark as legacy for debugging
+        router_result["_router_version"] = "legacy"
+    else:
+        router_result["_router_version"] = "v2"
+
+    return router_result
 
 
 def main() -> None:
@@ -146,6 +279,30 @@ def main() -> None:
         sys.stdout.write("\n")
         return
 
+    # V2 router test mode (for debugging)
+    if any(arg in ("--test-v2",) for arg in sys.argv[1:]):
+        # Read prompt from args or stdin
+        if len(sys.argv) > 2 and not sys.argv[2].startswith("-"):
+            test_prompt = sys.argv[2]
+            test_category = sys.argv[3] if len(sys.argv) > 3 and not sys.argv[3].startswith("-") else "Brain"
+        else:
+            print("Usage: --test-v2 'prompt here' [category]", file=sys.stderr)
+            sys.exit(1)
+
+        router_result = _route_with_v2(
+            category=test_category,
+            prompt=test_prompt,
+            messages=[{"role": "user", "content": test_prompt}],
+        )
+
+        if router_result:
+            json.dump({"status": "ok", "router_result": router_result}, sys.stdout, indent=2)
+        else:
+            json.dump({"status": "error", "error": "V2 routing failed"}, sys.stdout)
+        sys.stdout.write("\n")
+        return
+
+    # Normal request handling
     request = read_request()
 
     category = request.get("category") or os.getenv("LLM_ROUTER_DEFAULT_CATEGORY")
@@ -165,17 +322,33 @@ def main() -> None:
     except (TypeError, ValueError):
         est_cost_f = None
 
-    # Build prompt from messages for explicit model hint parsing (e.g., "Model=anthropic/claude-sonnet-4-5")
-    prompt_parts = []
-    for m in messages:
-        role = m.get("role", "")
-        content = m.get("content", "")
-        if content:
-            prompt_parts.append(f"{role}: {content}")
-    prompt = " ".join(prompt_parts)
+    # Build prompt from messages for routing
+    prompt = _build_prompt_from_messages(messages)
 
-    # Call router to pick provider/model/backend.
-    router_result = router_client.route(category=category, estimated_cost_usd=est_cost_f, prompt=prompt)
+    # Check for explicit Model= hint in prompt (backwards compat)
+    explicit_model = router_core.parse_explicit_model(prompt)
+
+    # Check if V2 is disabled via env
+    prefer_v2 = os.getenv("LLM_ROUTER_DISABLE_V2") != "1"
+
+    if explicit_model:
+        # Explicit model hint overrides routing - use legacy for this case
+        router_result = _route_with_legacy(
+            category=category,
+            prompt=prompt,
+            estimated_cost_usd=est_cost_f,
+        )
+        # Override with explicit model
+        router_result.update(explicit_model)
+    else:
+        # Use v2 with fallback to legacy
+        router_result = route_with_fallback(
+            category=category,
+            prompt=prompt,
+            messages=messages,
+            estimated_cost_usd=est_cost_f,
+            prefer_v2=prefer_v2,
+        )
 
     backend = get_backend_for_router_result(router_result)
 
