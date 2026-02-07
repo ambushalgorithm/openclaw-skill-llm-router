@@ -82,7 +82,7 @@ def _build_prompt_from_messages(messages: list[Dict[str, Any]]) -> str:
 
 
 def _route_with_v2(
-    category: str,
+    category: Optional[str],
     prompt: str,
     messages: list[Dict[str, Any]],
     estimated_cost_usd: Optional[float] = None,
@@ -362,7 +362,7 @@ def main() -> None:
         # Read prompt from args or stdin
         if len(sys.argv) > 2 and not sys.argv[2].startswith("-"):
             test_prompt = sys.argv[2]
-            test_category = sys.argv[3] if len(sys.argv) > 3 and not sys.argv[3].startswith("-") else "Brain"
+            test_category = sys.argv[3] if len(sys.argv) > 3 and not sys.argv[3].startswith("-") else None
         else:
             print("Usage: --test-v2 'prompt here' [category]", file=sys.stderr)
             sys.exit(1)
