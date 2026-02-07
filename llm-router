@@ -29,8 +29,9 @@ else
     BOLD=''; DIM=''; RESET=''
 fi
 
-# Header separator width (matches ledger table)
-SEP="────────────────────────────────────────────────────────────────────────────────────────────"
+# Header separator width (widened to fit combined status table)
+# Category(22) + $Real(18) + $Norm(18) + Tokens(13) + $Limit(18) + $Remaining(20) + %(~10) + padding
+SEP="────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────"
 
 # ─────────────────────────────────────────────────────────────────────────────
 # COMMANDS
@@ -204,7 +205,12 @@ cmd_ledger() {
 
 cmd_dashboard() {
     printf "╔%s╗\n" "$SEP"
-    printf "║%s                    LLM ROUTER DASHBOARD - Daily Check%s                                     ║\n" "$BOLD" "$RESET"
+    local title="LLM ROUTER DASHBOARD - Daily Check"
+    local title_len=${#title}
+    local sep_len=${#SEP}
+    local pad_left=$(((sep_len - title_len) / 2))
+    local pad_right=$((sep_len - title_len - pad_left))
+    printf "║%*s%s%s%*s║\n" "$pad_left" "" "$BOLD$title$RESET" "" "$pad_right" ""
     printf "╚%s╝\n" "$SEP"
     echo ""
     
