@@ -80,6 +80,14 @@ DEFAULT_CONFIG = ScoringConfig(
     technical_keywords=[
         "algorithm", "optimize", "architecture", "distributed",
         "kubernetes", "microservice", "database", "infrastructure",
+        # Quant/Trading/Finance domain
+        "sharpe", "cointegration", "futures", "correlation", "skew", "kurtosis",
+        "volatility", "backtest", "backtesting", "pine script", "tradingview",
+        "position sizing", "risk management", "adaptive", "adf test", "augmented dickey-fuller",
+        "kelly criterion", "kelly", "max drawdown", "calmar ratio", "sortino",
+        "var", "cvar", "value at risk", "monte carlo", "bootstrap",
+        "btc", "bitcoin", "gold", "es", "nq", "spy", "spx", "vix",
+        "fomc", "fed", "interest rate", "inflation", "cpi", "macro",
     ],
     
     creative_keywords=[
@@ -134,9 +142,9 @@ DEFAULT_CONFIG = ScoringConfig(
     },
     
     tier_boundaries=TierBoundaries(
-        simple_medium=0.0,
-        medium_complex=0.15,
-        complex_reasoning=0.25,
+        simple_medium=-0.08,  # Lowered from 0.0: harder to hit SIMPLE tier
+        medium_complex=0.12,  # Slightly lowered: more prompts hit MEDIUM
+        complex_reasoning=0.25,  # Kept: reasoning tasks still need to earn it
     ),
     
     confidence_steepness=12.0,
