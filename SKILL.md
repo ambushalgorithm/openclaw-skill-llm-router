@@ -120,12 +120,6 @@ alias llm-router-usage='cat ~/.llm-router-usage.json | jq'
 You can append a usage event into the router's canonical ledger (useful for
 "direct/no-router" calls).
 
-For per-category tracking from OpenClaw transcripts, ensure assistant replies
-include a first-line header like:
-
-- `Router: Category=Coding`
-- `Direct (no router): Category=Primary LLM`
-
 ```bash
 echo '{
   "mode": "OpenClaw",
@@ -139,6 +133,52 @@ echo '{
   "source": "direct-no-router"
 }' | python3 -m src.main --log-usage | jq
 ```
+
+### Automatic category assignment (OpenClaw transcripts)
+
+When importing OpenClaw session transcripts, the system uses a **3-layer categorization** with strict precedence:
+
+**Priority order (highest wins):**
+1. **Explicit header in message text** — assistant messages starting with `Router: Category=X` or `Direct (no router): Category=Y`
+2. **Agent default category** — from `~/.openclaw/agents/<agentId>/config.json`
+3. **Heuristic pattern matching** — based on `agent_id` naming conventions
+4. **Fallback** — `"Brain"` (if none of the above match)
+
+#### Agent config files
+
+Create `~/.openclaw/agents/<agentId>/config.json` to set an agent's default category:
+
+```json
+{
+  "default_category": "Primary LLM",
+  "description": "Main assistant for direct chat"
+}
+```
+
+The `main` agent should typically use `"Primary LLM"` to distinguish direct LLM calls from routed calls.
+
+#### Heuristic patterns
+
+If no header and no agent config, the system matches `agent_id` against these patterns:
+
+| Pattern | Category |
+|---------|----------|
+| `coding\*`, `codex\*`, `cline\*`, `roo\*`, `claude?code\*` | Coding |
+| `heartbeat\*`, `cron\*`, `scheduler\*` | Heartbeat |
+| `image\*`, `vision\*`, `look\*`, `see\*` | Image Understanding |
+| `voice\*`, `speak\*`, `tts\*`, `audio\*` | Voice |
+| `web\*`, `search\*`, `browse\*`, `fetch\*` | Web Search |
+| `write\*`, `content\*`, `blog\*`, `draft\*` | Writing Content |
+| `main\*`, `primary\*`, `default\*`, `core\*` | Primary LLM |
+
+#### Recommended header format
+
+To guarantee correct categorization, prepend your assistant replies with:
+
+- **For routed calls:** `Router: Category=Coding`
+- **For direct LLM calls:** `Direct (no router): Category=Primary LLM`
+
+This header-based approach overrides all other mechanisms and ensures predictable tracking.
 
 Typical environment variables:
 

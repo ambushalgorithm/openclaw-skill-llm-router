@@ -113,6 +113,17 @@ _DIRECT_PRIMARY_RE = re.compile(
 )
 _DIRECT_NO_ROUTER_RE = re.compile(r"\bDirect\s*\(no router\)\b", re.IGNORECASE)
 
+# Heuristic patterns for agent_id -> category matching (lowest priority fallback)
+_HEURISTIC_PATTERNS: list[tuple[re.Pattern, str]] = [
+    (re.compile(r"^coding|codex|cline|roo|claude.?code", re.IGNORECASE), "Coding"),
+    (re.compile(r"^heartbeat|cron|scheduler", re.IGNORECASE), "Heartbeat"),
+    (re.compile(r"^image|vision|look.*|see.*", re.IGNORECASE), "Image Understanding"),
+    (re.compile(r"^voice|speak|tts|audio", re.IGNORECASE), "Voice"),
+    (re.compile(r"^web|search|browse|fetch", re.IGNORECASE), "Web Search"),
+    (re.compile(r"^write|content|blog|draft", re.IGNORECASE), "Writing Content"),
+    (re.compile(r"^main|primary|default|core", re.IGNORECASE), "Primary LLM"),
+]
+
 
 def _extract_text(message: Any) -> str:
     if not isinstance(message, dict):
@@ -132,30 +143,89 @@ def _extract_text(message: Any) -> str:
     return ""
 
 
-def _infer_category_from_text(text: str) -> Optional[str]:
-    if not text:
+def _load_agent_config(agent_id: str, state_dir: Path) -> dict:
+    """Load agent configuration file if it exists.
+
+    Config file location: <state_dir>/agents/<agent_id>/config.json
+    Returns empty dict if file doesn't exist or is invalid.
+    """
+    try:
+        config_path = state_dir / "agents" / agent_id / "config.json"
+        if config_path.exists():
+            data = json.loads(config_path.read_text(encoding="utf-8"))
+            if isinstance(data, dict):
+                return data
+    except Exception:
+        pass
+    return {}
+
+
+def _get_heuristic_category(agent_id: str) -> Optional[str]:
+    """Infer category from agent_id using heuristic pattern matching.
+
+    Returns None if no pattern matches.
+    """
+    if not agent_id:
         return None
-
-    # Canonical direct/no-router header.
-    if _DIRECT_PRIMARY_RE.search(text) or _DIRECT_NO_ROUTER_RE.search(text):
-        return PRIMARY_LLM_CATEGORY
-
-    m = _ROUTER_CAT_RE.search(text)
-    if m:
-        cat = m.group(1).strip()
-        # normalize common variants
-        if cat.lower() in ("web", "websearch", "web search"):
-            return "Web Search"
-        if cat.lower() in ("writing", "writing content"):
-            return "Writing Content"
-        if cat.lower() in ("image", "image understanding"):
-            return "Image Understanding"
-        return cat
-
+    for pattern, category in _HEURISTIC_PATTERNS:
+        if pattern.search(agent_id):
+            return category
     return None
 
 
+def _infer_category(text: str, agent_id: str, state_dir: Path) -> Optional[str]:
+    """Determine category using layered precedence:
+
+    1. Explicit header in message text (highest priority)
+    2. Agent default category from config file
+    3. Heuristic pattern matching on agent_id
+    4. None (fallback to caller's default)
+
+    This ensures explicit headers override defaults, and defaults override heuristics.
+    """
+    # Layer 1: Explicit header in message text
+    if text:
+        # Canonical direct/no-router header.
+        if _DIRECT_PRIMARY_RE.search(text) or _DIRECT_NO_ROUTER_RE.search(text):
+            return PRIMARY_LLM_CATEGORY
+
+        m = _ROUTER_CAT_RE.search(text)
+        if m:
+            cat = m.group(1).strip()
+            # normalize common variants
+            if cat.lower() in ("web", "websearch", "web search"):
+                return "Web Search"
+            if cat.lower() in ("writing", "writing content"):
+                return "Writing Content"
+            if cat.lower() in ("image", "image understanding"):
+                return "Image Understanding"
+            return cat
+
+    # Layer 2: Agent default category from config file
+    agent_config = _load_agent_config(agent_id, state_dir)
+    default_cat = agent_config.get("default_category")
+    if default_cat and isinstance(default_cat, str):
+        return default_cat.strip()
+
+    # Layer 3: Heuristic pattern matching
+    return _get_heuristic_category(agent_id)
+
+
+# Backward compatibility - simple text-only inference for external callers
+def _infer_category_from_text(text: str) -> Optional[str]:
+    """Legacy function: only checks message headers.
+
+    For full layered categorization, use _infer_category() instead.
+    """
+    return _infer_category(text, "", Path.home() / ".openclaw")  # dummy values, won't match heuristics
+
+
 def _extract_usage_cost_total(usage: Any) -> Optional[float]:
+    """Extract cost.total from usage dict.
+
+    Returns the cost value (including 0.0 for free/subscription providers).
+    Returns None only if cost is missing or invalid.
+    """
     if not isinstance(usage, dict):
         return None
     cost = usage.get("cost")
@@ -166,7 +236,9 @@ def _extract_usage_cost_total(usage: Any) -> Optional[float]:
         if total is None:
             return None
         total_f = float(total)
-        if total_f <= 0:
+        # Allow $0 costs (subscription providers like Ollama report $0)
+        # Only reject negative or non-numeric values
+        if total_f < 0:
             return None
         return total_f
     except Exception:
@@ -191,6 +263,24 @@ def _extract_tokens(usage: Any) -> Tuple[Optional[int], Optional[int]]:
     return (_get_int("input"), _get_int("output"))
 
 
+def _extract_agent_id_from_path(file_path: Path, state_dir: Path) -> str:
+    """Extract agent_id from session file path.
+
+    Path format: <state_dir>/agents/<agent_id>/sessions/<session_id>.jsonl
+    Returns empty string if path doesn't match expected format.
+    """
+    try:
+        # Get path parts relative to state_dir
+        rel_path = file_path.relative_to(state_dir)
+        parts = rel_path.parts
+        # Expected: ('agents', '<agent_id>', 'sessions', '<file>.jsonl')
+        if len(parts) >= 3 and parts[0] == "agents":
+            return parts[1]
+    except Exception:
+        pass
+    return ""
+
+
 def import_openclaw_usage(
     *,
     category: str = DEFAULT_CATEGORY,
@@ -209,6 +299,7 @@ def import_openclaw_usage(
     for file_path in iter_transcript_files(state_dir, max_files=max_files):
         stats.files_scanned += 1
         file_key = str(file_path)
+        agent_id = _extract_agent_id_from_path(file_path, state_dir)
         offset = int(cursor.get(file_key, 0))
         try:
             size = file_path.stat().st_size
@@ -247,7 +338,8 @@ def import_openclaw_usage(
                         continue
 
                     text = _extract_text(msg)
-                    inferred_cat = _infer_category_from_text(text)
+                    # Use layered categorization: header > agent config > heuristic > default
+                    inferred_cat = _infer_category(text, agent_id, state_dir)
                     event_category = inferred_cat or category
 
                     tokens_in, tokens_out = _extract_tokens(usage)
