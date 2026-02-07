@@ -80,6 +80,10 @@ DEFAULT_CONFIG = ScoringConfig(
     technical_keywords=[
         "algorithm", "optimize", "architecture", "distributed",
         "kubernetes", "microservice", "database", "infrastructure",
+        # Explanations and analysis
+        "explain", "explanation", "detailed", "thorough", "in-depth",
+        "compare", "contrast", "difference between", "how does",
+        "why does", "what is the best way", "design pattern",
         # Quant/Trading/Finance domain
         "sharpe", "cointegration", "futures", "correlation", "skew", "kurtosis",
         "volatility", "backtest", "backtesting", "pine script", "tradingview",
@@ -142,9 +146,9 @@ DEFAULT_CONFIG = ScoringConfig(
     },
     
     tier_boundaries=TierBoundaries(
-        simple_medium=-0.08,  # Lowered from 0.0: harder to hit SIMPLE tier
-        medium_complex=0.12,  # Slightly lowered: more prompts hit MEDIUM
-        complex_reasoning=0.25,  # Kept: reasoning tasks still need to earn it
+        simple_medium=-0.15,  # Even lower: fewer prompts hit SIMPLE
+        medium_complex=0.05,   # Lowered: explanations now hit COMPLEX
+        complex_reasoning=0.30,  # Raised slightly: REASONING is special
     ),
     
     confidence_steepness=12.0,
