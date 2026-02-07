@@ -67,7 +67,7 @@ class RoutingRequest:
     max_cost_per_1k: Optional[float] = None  # manual budget override
     exclude_quota_limited: bool = True  # skip OpenAI if True
     exclude_models: Optional[Set[str]] = None  # per-request exclusions
-    cost_optimized: bool = False  # Prefer cheaper models (MiniMax over Kimi)
+    cost_optimized: Optional[bool] = None  # Prefer cheaper models (MiniMax over Kimi); None=use policy default
 
 
 @dataclass
@@ -615,6 +615,7 @@ class RouterPolicy:
                 "max_cost_per_1k": 0.050,
                 "exclude_quota_limited": True,
                 "default_tier_on_ambiguous": "MEDIUM",
+                "cost_optimized": False,
             },
         }
     
@@ -661,7 +662,18 @@ class RouterPolicy:
             "max_cost_per_1k": 0.050,
             "exclude_quota_limited": True,
             "default_tier_on_ambiguous": "MEDIUM",
+            "cost_optimized": False,
         })
+    
+    def is_cost_optimized_default(self, category: Optional[str] = None) -> bool:
+        """Get default cost_optimized setting for a category (or global if no category)."""
+        # Check category policy first
+        if category:
+            cat_policy = self.get_category_policy(category)
+            if "cost_optimized" in cat_policy:
+                return cat_policy["cost_optimized"]
+        # Fall back to global default
+        return self.global_limits.get("cost_optimized", False)
 
 
 class ModelCatalog:
@@ -999,9 +1011,25 @@ class Router:
         # Determine preferred models order
         base_preferred = cat_policy.get("preferred_models", [])
         
+        # Determine cost optimization - explicit request overrides policy default
+        # None means "use policy default"; True/False means "force this mode"
+        if request.cost_optimized is not None:
+            cost_optimized = request.cost_optimized
+        elif category:
+            # Check if policy has cost_optimized set for this category
+            cat_cost_opt = cat_policy.get("cost_optimized")
+            if cat_cost_opt is not None:
+                cost_optimized = cat_cost_opt
+            else:
+                # Use global default
+                cost_optimized = self.policy.is_cost_optimized_default(category)
+        else:
+            # No category, use global default
+            cost_optimized = self.policy.global_limits.get("cost_optimized", False)
+        
         # Option D: Smart tier-based model selection
         # When cost_optimized, use cheaper models for lower tiers
-        if request.cost_optimized and base_preferred:
+        if cost_optimized and base_preferred:
             preferred_order = self._get_tier_preferred_order(base_preferred, tier)
         else:
             preferred_order = base_preferred
@@ -1196,12 +1224,14 @@ def main():
         return
     
     if len(sys.argv) < 2:
-        print("Usage: python router_v2.py 'Your prompt here' [--category Coding]")
+        print("Usage: python router_v2.py 'Your prompt here' [--category Coding] [--cost-optimized]")
         print("       python router_v2.py --list-models")
         sys.exit(1)
     
     prompt = sys.argv[1]
     category = None
+    cost_optimized = "--cost-optimized" in sys.argv
+    
     if "--category" in sys.argv:
         idx = sys.argv.index("--category")
         category = sys.argv[idx + 1] if idx + 1 < len(sys.argv) else None
@@ -1210,6 +1240,7 @@ def main():
     request = RoutingRequest(
         prompt=prompt,
         category_hint=category,
+        cost_optimized=cost_optimized,
     )
     
     result = router.route(request)

@@ -45,6 +45,7 @@ category_policies:
     allowed_tiers: [SIMPLE]           # Never use COMPLEX/REASONING models
     max_cost_per_1k: 0.001            # Under $1/M tokens
     required_capabilities: [chat]     # Absolute minimum
+    cost_optimized: true              # Always use cheapest models for heartbeats
     preferred_models:                 # Try these first (in order)
       - ollama/ministral-3
       - ollama/gemini-3-flash-preview
@@ -172,6 +173,11 @@ global_limits:
   
   # When classifier can't decide (ambiguous), default to this tier
   default_tier_on_ambiguous: MEDIUM
+  
+  # Cost optimization: Prefer cheaper models for MEDIUM/SIMPLE tiers
+  # When true: MiniMax/DeepSeek prioritized over Kimi for lower tiers
+  # When false: Kimi prioritized (best quality regardless of cost)
+  cost_optimized: false               # Default: quality over cost
   
   # When no models match constraints, relax these in order:
   fallback_relaxation:
