@@ -77,6 +77,8 @@ category_policies:
     preferred_models:
       - ollama/kimi-k2.5
       - ollama/deepseek-v3.1          # Has reasoning capability
+      - ollama/minimax-m2             # Cheap + efficient
+      - ollama/minimax-m2.1           # Extended context version
       - anthropic/claude-sonnet-4-5
     exclude_models:
       - ollama/ministral-3            # No reasoning
@@ -94,8 +96,11 @@ category_policies:
     preferred_tags: [code, agentic]   # Prefer agentic coding models
     preferred_models:
       - ollama/kimi-k2.5              # Best agentic + reasoning
-      - ollama/qwen3-coder-next       # Agentic coding
+      - ollama/qwen3-coder-next       # Agentic coding (updated daily)
+      - ollama/minimax-m2             # Cheap + good for code
+      - ollama/minimax-m2.1           # Extended context for large codebases
       - ollama/devstral-2             # Software engineering agent
+      - ollama/rnj-1                  # 8B efficient code/STEM
       - anthropic/claude-sonnet-4-5   # Reliable fallback
     exclude_models:
       - ollama/ministral-3            # Weak coding
@@ -177,7 +182,7 @@ global_limits:
   # Cost optimization: Prefer cheaper models for MEDIUM/SIMPLE tiers
   # When true: MiniMax/DeepSeek prioritized over Kimi for lower tiers
   # When false: Kimi prioritized (best quality regardless of cost)
-  cost_optimized: false               # Default: quality over cost
+  cost_optimized: true                # Enabled: prefer MiniMax/DeepSeek when appropriate
   
   # When no models match constraints, relax these in order:
   fallback_relaxation:
