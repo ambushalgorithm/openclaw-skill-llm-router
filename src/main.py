@@ -24,6 +24,13 @@ from . import types
 from .backends import get_backend_for_router_result
 from .openclaw_import import import_openclaw_usage
 from .quota_tracker import get_ollama_status, QuotaTracker, reload_ollama_config
+from .routing_tracker import (
+    RoutingDecision,
+    record_decision,
+    get_last_decision,
+    get_routing_stats,
+    format_why_output,
+)
 
 # Router v2 imports
 from .router_v2 import Router as RouterV2, RoutingRequest as RoutingRequestV2
@@ -121,6 +128,27 @@ def _route_with_v2(
             },
         }
 
+        # Record the routing decision for analytics
+        from datetime import datetime, timezone
+        decision = RoutingDecision(
+            ts_ms=int(datetime.now(timezone.utc).timestamp() * 1000),
+            router_version="v2",
+            category=category,
+            prompt_preview=prompt[:100] + "..." if len(prompt) > 100 else prompt,
+            tier=result.tier,
+            model_id=result.model_id,
+            provider=result.provider,
+            cost_per_1k=result.cost_per_1k,
+            confidence=result.confidence,
+            signals=result.classification_signals,
+            capabilities=sorted(result.capabilities),
+            candidates_considered=result.candidates_considered,
+            reason=result.reason,
+            policy_applied=result.policy_applied,
+            quota_limited=result.quota_limited,
+        )
+        record_decision(decision)
+
         return router_result
 
     except Exception as e:
@@ -137,11 +165,34 @@ def _route_with_legacy(
     estimated_cost_usd: Optional[float] = None,
 ) -> Dict[str, Any]:
     """Route using legacy router (router_client)."""
-    return router_client.route(
+    result = router_client.route(
         category=category,
         estimated_cost_usd=estimated_cost_usd,
         prompt=prompt,
     )
+    
+    # Record legacy routing decision
+    from datetime import datetime, timezone
+    decision = RoutingDecision(
+        ts_ms=int(datetime.now(timezone.utc).timestamp() * 1000),
+        router_version="legacy",
+        category=category,
+        prompt_preview=prompt[:100] + "..." if len(prompt) > 100 else prompt,
+        tier="MEDIUM",  # Legacy doesn't classify tiers
+        model_id=result.get("model_id", "unknown"),
+        provider=result.get("provider", "unknown"),
+        cost_per_1k=0.0,  # Legacy doesn't expose this directly
+        confidence=1.0,
+        signals=["legacy_router"],
+        capabilities=[],
+        candidates_considered=1,
+        reason="Legacy CSV-based routing",
+        policy_applied=None,
+        quota_limited=False,
+    )
+    record_decision(decision)
+    
+    return result
 
 
 def route_with_fallback(
@@ -194,7 +245,34 @@ def main() -> None:
     if any(arg in ("--status", "-s") for arg in sys.argv[1:]):
         view_mode = _get_view_mode(sys.argv[1:])
         summary = router_core.status_summary(view_mode=view_mode)
-        json.dump(summary, sys.stdout)
+        
+        # Add routing stats to status
+        routing_stats = get_routing_stats(hours=24)
+        summary["routing_stats"] = routing_stats
+        
+        json.dump(summary, sys.stdout, indent=2)
+        sys.stdout.write("\n")
+        return
+    
+    # Why mode: show details of last routing decision
+    if any(arg in ("--why",) for arg in sys.argv[1:]):
+        output = format_why_output()
+        print(output)
+        return
+    
+    # Routing stats mode: detailed routing analytics
+    if any(arg in ("--routing-stats",) for arg in sys.argv[1:]):
+        # Check for hours argument
+        hours = 24
+        for i, arg in enumerate(sys.argv[1:], 1):
+            if arg == "--hours" and i < len(sys.argv) - 1:
+                try:
+                    hours = int(sys.argv[i + 1])
+                except ValueError:
+                    pass
+        
+        stats = get_routing_stats(hours=hours)
+        json.dump(stats, sys.stdout, indent=2)
         sys.stdout.write("\n")
         return
 

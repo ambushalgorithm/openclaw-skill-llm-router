@@ -61,7 +61,29 @@ echo '{"category": "Coding", "messages": [{"role": "user", "content": "Hello"}]}
 
 ## Next Steps
 
-### Step 3: Tune Classification Aggressiveness ⏳ Pending
+### Step 4: Update Status/Monitoring ✅ COMPLETED 2026-02-07
+
+- [x] **Update `router_core.status_summary()`** — Added `routing_stats` field to status output
+- [x] **Add `--why` flag** — Shows classification signals, tier, model, confidence, reason
+- [x] **Track % of requests using v2 vs legacy** — `routing_stats.v2_percentage` and `legacy_percentage`
+- [x] **Track model selection by tier over time** — `routing_stats.by_tier`, `by_model`, `by_provider`
+
+**New files:**
+- `src/routing_tracker.py` — Decision recording and analytics
+
+**Usage:**
+```bash
+# Show routing analytics in status
+python3 -m src.main --status  | jq '.routing_stats'
+
+# Explain last routing decision
+python3 -m src.main --why
+
+# Detailed routing stats for last N hours
+python3 -m src.main --routing-stats --hours 6
+```
+
+### Step 3: Tune Classification Aggressiveness ⏳ Pending (moved to last)
 
 Current classifier leans toward cheap models.
 
@@ -85,13 +107,6 @@ $ python3 router_v2.py "Describe this image" --category Image_Understanding
 - [ ] Run extended test suite with real prompts from your use cases
 - [ ] Adjust tier boundaries if too aggressive toward cheap models
 - [ ] Add custom keywords for quant/finance terms if needed
-
-### Step 4: Update Status/Monitoring ⏳ Pending
-
-- [ ] Update `router_core.status_summary()` to show capability-based selection stats
-- [ ] Add `--why` flag to show classification signals for last request
-- [ ] Track % of requests using v2 vs legacy
-- [ ] Track model selection by tier over time
 
 ### Step 5: Documentation & Cleanup ⏳ Pending
 
