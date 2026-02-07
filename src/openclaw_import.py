@@ -29,6 +29,7 @@ from . import router_core
 
 DEFAULT_CATEGORY = "Brain"
 PRIMARY_LLM_CATEGORY = "Primary LLM"
+OPENCLAW_MODE = "OpenClaw"
 
 
 def _openclaw_state_dir() -> Path:
@@ -284,7 +285,7 @@ def _extract_agent_id_from_path(file_path: Path, state_dir: Path) -> str:
 def import_openclaw_usage(
     *,
     category: str = DEFAULT_CATEGORY,
-    mode: str = router_core.OPENCLAW_MODE,
+    mode: str = OPENCLAW_MODE,
     state_dir: Optional[Path] = None,
     cursor_path: Optional[Path] = None,
     source_prefix: str = "openclaw-transcript",
