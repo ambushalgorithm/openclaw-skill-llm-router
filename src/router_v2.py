@@ -809,6 +809,72 @@ class Router:
         self.policy = RouterPolicy(policy_path)
         self.catalog = ModelCatalog(catalog_path, self.policy)
     
+    def _detect_category(self, prompt: str, detected_signals: List[str]) -> Optional[str]:
+        """Auto-detect category from prompt content when no hint provided.
+        
+        Uses classifier signals + keyword matching for reliable detection.
+        """
+        text = prompt.lower()
+        
+        # Check existing signals from classifier
+        signal_str = " ".join(detected_signals).lower()
+        
+        # Strong coding signal: "code" in signals + imperative verbs like build/implement
+        coding_signals = ["code", "build", "implement", "create", "debug", "fix", "script", "def ", "function"]
+        code_score = sum(1 for kw in coding_signals if kw in signal_str or kw in text)
+        
+        # Boost for explicit programming terms (even without classifier code signal)
+        prog_terms = ["python", "javascript", "error", "exception", "keyerror", "typeerror", 
+                      "traceback", "import ", "class ", "def ", "function", "variable"]
+        code_score += sum(0.5 for kw in prog_terms if kw in text)
+        
+        # Brain signals: technical terms + explain/analyze/why patterns
+        brain_signals = [
+            "technical", "strategy", "correlation", "skew", "volatility", "sharpe",
+            "futures", "btc", "gold", "es", "nq", "fed", "fomc", "inflation",
+            "explain", "analyze", "why", "how does", "compare",
+        ]
+        
+        # How-to/how do I questions about tech tend to be Brain category
+        if "how do i " in text or "how to " in text:
+            if any(term in text for term in ["openclaw", "gateway", "config", "router", "server"]):
+                brain_score += 2
+        
+        # Coding: Pine Script, TradingView, backtesting are all code
+        pine_terms = ["pine script", "tradingview", "backtest", "backtesting", "indicator"]
+        code_score += sum(1.0 for kw in pine_terms if kw in text)
+        brain_score = sum(1 for kw in brain_signals if kw in signal_str or kw in text)
+        
+        # Web search signals
+        web_signals = ["search", "look up", "latest", "news", "current"]
+        web_score = sum(1 for kw in web_signals if kw in text)
+        
+        # Image signals
+        image_signals = ["image", "picture", "photo", "diagram", "chart vision"]
+        image_score = sum(1 for kw in image_signals if kw in text)
+        
+        # Writing signals
+        writing_signals = ["write", "draft", "compose", "email", "blog"]
+        writing_score = sum(1 for kw in writing_signals if kw in text)
+        
+        # Pick the best match
+        scores = [
+            ("Coding", code_score),
+            ("Brain", brain_score),
+            ("Web_Search", web_score),
+            ("Image_Understanding", image_score),
+            ("Writing_Content", writing_score),
+        ]
+        best = max(scores, key=lambda x: x[1])
+        
+        # Lower threshold (1 match) if technical domain detected
+        tech_detected = any(s in signal_str for s in ["technical", "code", "reasoning"])
+        threshold = 1 if tech_detected else 2
+        
+        if best[1] >= threshold:
+            return best[0]
+        return None
+
     def route(self, request: RoutingRequest) -> RoutingResult:
         """Route a request to the best available model."""
         
@@ -827,8 +893,18 @@ class Router:
             )
             tier = classification.tier
             
-            # If ambiguous, check global default or policy default
-            if tier is None:
+            # Auto-detect category based on content
+            detected_category = self._detect_category(request.prompt, classification.signals)
+            if detected_category:
+                category = detected_category
+                # Ensure tier is appropriate for the category
+                cat_tier = self._category_to_tier(category)
+                # Use the higher of classification tier or category default
+                tier_order = {"SIMPLE": 0, "MEDIUM": 1, "COMPLEX": 2, "REASONING": 3}
+                if tier is None or tier_order.get(tier, 0) < tier_order.get(cat_tier, 0):
+                    tier = cat_tier
+                signals = classification.signals + [f"auto_category={category}"]
+            elif tier is None:
                 tier = self._get_default_tier()
                 signals = classification.signals + [f"ambiguous_default={tier}"]
             else:
