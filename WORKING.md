@@ -108,9 +108,9 @@ $ python3 router_v2.py "Describe this image" --category Image_Understanding
 - [ ] Adjust tier boundaries if too aggressive toward cheap models
 - [ ] Add custom keywords for quant/finance terms if needed
 
-### Step 5: Documentation & Cleanup ⏳ Pending
+### Step 5: Documentation & Cleanup 🔄 IN PROGRESS
 
-- [ ] Update `SKILL.md` with new router v2 architecture
+- [x] Update `SKILL.md` with router v2 architecture, 41 models, monitoring features ✅ 2026-02-07
 - [ ] Remove `model_routing.csv` (archive to `.legacy/`)
 - [ ] Clean up `rates.json` vs `config/models.yaml` (decide which to keep)
 - [ ] Update shell aliases
