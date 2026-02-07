@@ -75,9 +75,10 @@ category_policies:
     max_cost_per_1k: 0.010
     required_capabilities: [chat, reasoning]
     preferred_models:
-      - ollama/kimi-k2.5
-      - ollama/deepseek-v3.1          # Has reasoning capability
-      - ollama/minimax-m2             # Cheap + efficient
+      - ollama/kimi-k2.5              # Best overall (vision, reasoning, agentic)
+      - ollama/deepseek-v3.2          # Fast, cheap coding
+      - ollama/deepseek-v3.1          # Reasoning + thinking mode
+      - ollama/minimax-m2             # Efficient fallback
       - ollama/minimax-m2.1           # Extended context version
       - anthropic/claude-sonnet-4-5
     exclude_models:
@@ -96,10 +97,12 @@ category_policies:
     preferred_tags: [code, agentic]   # Prefer agentic coding models
     preferred_models:
       - ollama/kimi-k2.5              # Best agentic + reasoning
+      - ollama/deepseek-v3.2          # Fastest, cheapest pure coding
+      - ollama/deepseek-v3.1          # Reasoning + code hybrid
       - ollama/qwen3-coder-next       # Agentic coding (updated daily)
-      - ollama/minimax-m2             # Cheap + good for code
-      - ollama/minimax-m2.1           # Extended context for large codebases
       - ollama/devstral-2             # Software engineering agent
+      - ollama/minimax-m2             # Efficient multitask
+      - ollama/minimax-m2.1           # Extended context version
       - ollama/rnj-1                  # 8B efficient code/STEM
       - anthropic/claude-sonnet-4-5   # Reliable fallback
     exclude_models:
