@@ -105,6 +105,10 @@ alias llm-router-status-ledger='$HOME/Projects/openclaw-skill-llm-router/llm-rou
 
 # Legacy alias for raw ledger tail
 alias llm-router-ledger='(tail -n 5 ~/.llm-router-ledger.jsonl | jq)'
+
+# Comprehensive dashboard: sync + ledger + history + current status
+# Perfect for daily check / debugging / habit
+alias llm-router-dashboard='$HOME/Projects/openclaw-skill-llm-router/llm-router-dashboard.sh'
 ```
 
 ### Direct usage (no aliases)
