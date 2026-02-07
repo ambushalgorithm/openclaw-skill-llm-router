@@ -13,7 +13,12 @@ from pathlib import Path
 from typing import Optional
 
 
-DEFAULT_RATES_PATH = Path.home() / ".llm-router-rates.json"
+# Default rates file location (in repo config/ directory)
+# Can be overridden via LLM_ROUTER_RATES_PATH env var
+def _default_rates_path() -> Path:
+    # Find repo root (where this file is located: src/pricing.py)
+    repo_root = Path(__file__).parent.parent
+    return repo_root / "config" / "rates.json"
 
 
 @dataclass
@@ -31,7 +36,7 @@ def _rates_path() -> Path:
     override = os.getenv("LLM_ROUTER_RATES_PATH")
     if override:
         return Path(override).expanduser().resolve()
-    return DEFAULT_RATES_PATH
+    return _default_rates_path()
 
 
 def load_rates() -> dict[str, dict]:
@@ -158,16 +163,62 @@ def fetch_anthropic_rates() -> dict:
 def fetch_ollama_rates() -> dict:
     """Fetch/estimate Ollama Cloud rates.
     
-    Ollama is subscription-based, so we use estimated market rates
-    to enable cost comparison.
+    Ollama is subscription-based. These rates are sourced from provider APIs
+    (Together AI, Fireworks.ai, DeepSeek direct) for cost comparison purposes.
+    
+    Sources:
+    - Together AI: https://www.together.ai/pricing
+    - Fireworks.ai: https://www.fireworks.ai/pricing
+    - DeepSeek: https://api-docs.deepseek.com/quick_start/pricing
     """
-    # Estimated market-competitive rates for comparison purposes
     return {
-        "kimi-k2.5": {"input": 0.0001, "output": 0.0002, "source": "estimate"},
-        "kimi-k2.5:cloud": {"input": 0.0001, "output": 0.0002, "source": "estimate"},
-        "llama3.3": {"input": 0.0001, "output": 0.0002, "source": "estimate"},
+        "_meta": {
+            "note": "Ollama Cloud is subscription-based. These rates are from provider APIs for cost comparison.",
+            "sources": ["together.ai", "fireworks.ai", "deepseek.com"]
+        },
+        # Kimi family (Moonshot AI) - from Together AI
+        "kimi-k2.5": {"input": 0.0005, "output": 0.0028, "source": "together.ai"},
+        "kimi-k2.5:cloud": {"input": 0.0005, "output": 0.0028, "source": "together.ai"},
+        "kimi-k2": {"input": 0.001, "output": 0.003, "source": "together.ai"},
+        "kimi-k2-thinking": {"input": 0.0012, "output": 0.004, "source": "together.ai"},
+
+        # DeepSeek family
+        "deepseek-v3.1": {"input": 0.0006, "output": 0.0017, "source": "together.ai"},
+        "deepseek-v3.2": {"input": 0.00028, "output": 0.00042, "source": "deepseek.com"},
+        "deepseek-v3": {"input": 0.00056, "output": 0.00168, "source": "fireworks.ai"},
+        "deepseek-r1": {"input": 0.003, "output": 0.007, "source": "together.ai"},
+
+        # Qwen family (Alibaba) - from Together AI/Fireworks
+        "qwen3-coder-next": {"input": 0.0005, "output": 0.0012, "source": "together.ai"},
+        "qwen3-coder": {"input": 0.0005, "output": 0.0012, "source": "together.ai"},
+        "qwen3-235b": {"input": 0.00022, "output": 0.00088, "source": "fireworks.ai"},
+        "qwen3-next": {"input": 0.00015, "output": 0.0015, "source": "together.ai"},
+        "qwen3-vl": {"input": 0.0005, "output": 0.0015, "source": "together.ai"},
         "qwen2.5": {"input": 0.0001, "output": 0.0002, "source": "estimate"},
-        "default": {"input": 0.0001, "output": 0.0002, "source": "estimate"}
+
+        # GLM family (Zhipu) - from Together AI/Fireworks
+        "glm-4.7": {"input": 0.00045, "output": 0.002, "source": "together.ai"},
+        "glm-4.6": {"input": 0.0002, "output": 0.0011, "source": "fireworks.ai"},
+
+        # Mistral family - from Together AI
+        "ministral-3": {"input": 0.0001, "output": 0.0003, "source": "together.ai"},
+
+        # MiniMax - from Fireworks
+        "minimax-m2": {"input": 0.0003, "output": 0.0012, "source": "fireworks.ai"},
+        "minimax-m2.1": {"input": 0.0003, "output": 0.0012, "source": "fireworks.ai"},
+
+        # Cogito - from Together AI
+        "cogito-2.1": {"input": 0.00018, "output": 0.00059, "source": "together.ai"},
+
+        # Other models (estimated where no direct source available)
+        "gemini-3-pro-preview": {"input": 0.00125, "output": 0.005, "source": "estimate"},
+        "gemini-3-flash-preview": {"input": 0.00015, "output": 0.0006, "source": "estimate"},
+        "devstral-small-2": {"input": 0.0005, "output": 0.0015, "source": "estimate"},
+        "devstral-2": {"input": 0.0008, "output": 0.0025, "source": "estimate"},
+        "nemotron-3-nano": {"input": 0.0003, "output": 0.0012, "source": "estimate"},
+        "rnj-1": {"input": 0.0004, "output": 0.0012, "source": "estimate"},
+        "llama3.3": {"input": 0.0001, "output": 0.0002, "source": "estimate"},
+        "default": {"input": 0.0005, "output": 0.0015, "source": "estimate"}
     }
 
 
