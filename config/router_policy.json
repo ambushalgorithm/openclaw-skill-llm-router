@@ -33,7 +33,7 @@
       "max_cost_per_1k": 0.01,
       "required_capabilities": ["chat", "reasoning"],
       "preferred_models": [
-        "ollama/kimi-k2.5",
+        "ollama/kimi-k2.5:cloud",
         "ollama/deepseek-v3.1",
         "anthropic/claude-sonnet-4-5"
       ],
@@ -50,7 +50,7 @@
       "required_capabilities": ["code"],
       "preferred_tags": ["code", "agentic"],
       "preferred_models": [
-        "ollama/kimi-k2.5",
+        "ollama/kimi-k2.5:cloud",
         "ollama/qwen3-coder-next",
         "ollama/devstral-2",
         "anthropic/claude-sonnet-4-5"
@@ -80,7 +80,7 @@
       "max_cost_per_1k": 0.005,
       "required_capabilities": ["chat"],
       "preferred_models": [
-        "ollama/kimi-k2.5",
+        "ollama/kimi-k2.5:cloud",
         "ollama/deepseek-v3.2",
         "anthropic/claude-sonnet-4-5"
       ],
@@ -92,7 +92,7 @@
       "max_cost_per_1k": 0.01,
       "required_capabilities": ["vision"],
       "preferred_models": [
-        "ollama/kimi-k2.5",
+        "ollama/kimi-k2.5:cloud",
         "ollama/qwen3-vl",
         "ollama/gemini-3-pro-preview",
         "anthropic/claude-sonnet-4-5"

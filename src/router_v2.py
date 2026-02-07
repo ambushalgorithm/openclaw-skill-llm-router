@@ -132,8 +132,8 @@ DEFAULT_MODEL_CATALOG = {
             },
             "models": {
                 # Kimi Family (Moonshot AI)
-                "kimi-k2.5": {
-                    "name": "Kimi K2.5",
+                "kimi-k2.5:cloud": {
+                    "name": "Kimi K2.5 Cloud",
                     "costs": {"input_per_1k": 0.0005, "output_per_1k": 0.0028},
                     "capabilities": {"chat": True, "code": True, "reasoning": True, "vision": True, "long_context": True, "function_calling": True, "json_mode": True, "agentic": True},
                     "context_window": 262144,
