@@ -19,10 +19,22 @@ if [ ! -f "$LOG_FILE" ] || [ ! -s "$LOG_FILE" ]; then
     echo "" >> "$LOG_FILE"
 fi
 
-# Each snapshot is: header line + 8 category lines + blank = ~10 lines
-# Show requested number of snapshots (approximate by line count)
-awk -v n="$NUM_SNAPSHOTS" '
-/^====/ { current++ }
-current > n { exit }
-{ print }
-' "$LOG_FILE" | tail -n $((NUM_SNAPSHOTS * 12))
+# Count total snapshots in file
+TOTAL_SNAPSHOTS=$(grep -c '^====' "$LOG_FILE" 2>/dev/null || echo 0)
+
+# Calculate which snapshot to start from (show last N)
+START_SNAPSHOT=$((TOTAL_SNAPSHOTS - NUM_SNAPSHOTS + 1))
+if [ "$START_SNAPSHOT" -lt 1 ]; then
+    START_SNAPSHOT=1
+fi
+
+# Print from the calculated start point
+current=0
+while IFS= read -r line; do
+    if [[ "$line" =~ ^==== ]]; then
+        ((current++))
+    fi
+    if [ "$current" -ge "$START_SNAPSHOT" ]; then
+        echo "$line"
+    fi
+done < "$LOG_FILE"

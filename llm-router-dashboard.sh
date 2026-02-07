@@ -21,9 +21,9 @@ echo "────────────────────────�
 echo ""
 
 # 3. Status snapshots
-echo "▶ Status history (last 5 snapshots):"
+echo "▶ Status history (last 3 snapshots):"
 echo "───────────────────────────────────────────────────────────────────"
-"$ROOT_DIR/llm-router-status-log.sh" 5
+"$ROOT_DIR/llm-router-status-log.sh" 3
 echo ""
 
 # 4. Current status table
