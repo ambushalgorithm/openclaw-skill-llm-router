@@ -80,22 +80,69 @@ cmd_sync() {
 }
 
 cmd_status() {
+    local view_mode="combined"
+    # Check for view mode flags
+    if [[ "${1:-}" == "--real" ]]; then
+        view_mode="real"
+    elif [[ "${1:-}" == "--normalized" ]]; then
+        view_mode="normalized"
+    fi
+
     cd "$ROOT_DIR"
-    python3 -m src.main --status 2>/dev/null | jq -r '
-        .modes.OpenClaw
-        | to_entries
-        | map(select(.value.limit_usd > 0))
-        | sort_by(.key)
-        | .[]
-        | [.key, .value.used_usd, .value.limit_usd, (.value.limit_usd - .value.used_usd), (100 * (.value.used_usd / .value.limit_usd))]
-        | @tsv
-    ' 2>/dev/null | awk -F'\t' 'BEGIN {
-        printf "%-22s %-17s %-17s %-19s %s\n", "Category", "$ Used", "$ Limit", "$ Remaining", "%"
-    }
-    {
-        used=$2+0; limit=$3+0; rem=$4+0; pct=$5+0;
-        printf "%-22s $%-16.8f $%-16.8f $%-18.8f %.3f%%\n", $1, used, limit, rem, pct
-    }'
+    
+    case "$view_mode" in
+        real)
+            python3 -m src.main --status --real 2>/dev/null | jq -r '
+                .modes.OpenClaw
+                | to_entries
+                | map(select(.value.limit_usd > 0))
+                | sort_by(.key)
+                | .[]
+                | [.key, .value.real_usd, .value.limit_usd, (.value.limit_usd - .value.real_usd), (100 * (.value.real_usd / .value.limit_usd))]
+                | @tsv
+            ' 2>/dev/null | awk -F'\t' 'BEGIN {
+                printf "%-22s %-17s %-17s %-19s %s\n", "Category", "$ Used", "$ Limit", "$ Remaining", "%"
+            }
+            {
+                used=$2+0; limit=$3+0; rem=$4+0; pct=$5+0;
+                printf "%-22s $%-16.8f $%-16.8f $%-18.8f %.3f%%\n", $1, used, limit, rem, pct
+            }'
+            ;;
+        normalized)
+            python3 -m src.main --status --normalized 2>/dev/null | jq -r '
+                .modes.OpenClaw
+                | to_entries
+                | map(select(.value.limit_usd > 0))
+                | sort_by(.key)
+                | .[]
+                | [.key, .value.normalized_usd, .value.limit_usd, (.value.limit_usd - .value.normalized_usd), (100 * (.value.normalized_usd / .value.limit_usd))]
+                | @tsv
+            ' 2>/dev/null | awk -F'\t' 'BEGIN {
+                printf "%-22s %-17s %-17s %-19s %s\n", "Category", "$ Norm", "$ Limit", "$ Remaining", "%"
+            }
+            {
+                used=$2+0; limit=$3+0; rem=$4+0; pct=$5+0;
+                printf "%-22s $%-16.8f $%-16.8f $%-18.8f %.3f%%\n", $1, used, limit, rem, pct
+            }'
+            ;;
+        combined)
+            python3 -m src.main --status 2>/dev/null | jq -r '
+                .modes.OpenClaw
+                | to_entries
+                | map(select(.value.limit_usd > 0))
+                | sort_by(.key)
+                | .[]
+                | [.key, .value.real_usd, .value.normalized_usd, .value.tokens_total, .value.limit_usd, (.value.limit_usd - .value.normalized_usd), (100 * (.value.normalized_usd / .value.limit_usd))]
+                | @tsv
+            ' 2>/dev/null | awk -F'\t' 'BEGIN {
+                printf "%-22s %-17s %-17s %-12s %-17s %-19s %s\n", "Category", "$ Real", "$ Normalized", "Tokens", "$ Limit", "$ Remaining", "%"
+            }
+            {
+                real=$2+0; norm=$3+0; tokens=$4+0; limit=$5+0; rem=$6+0; pct=$7+0;
+                printf "%-22s $%-16.8f $%-16.8f %-12s $%-16.8f $%-18.8f %.3f%%\n", $1, real, norm, tokens, limit, rem, pct
+            }'
+            ;;
+    esac
 }
 
 cmd_status_raw() {
@@ -233,7 +280,7 @@ main() {
         help|--help|-h)       cmd_help ;;
         version|--version)    cmd_version ;;
         dashboard)            cmd_dashboard ;;
-        status|st)            cmd_status ;;
+        status|st)            cmd_status "$@" ;;
         status-raw|raw)       cmd_status_raw ;;
         log|history)          cmd_log "$@" ;;
         ledger|entries)       cmd_ledger "$@" ;;

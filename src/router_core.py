@@ -519,11 +519,98 @@ def route_openclaw(task: Dict[str, Any], *, csv_path: Path | None = None, usage_
 
 
 # ---------------------------------------------------------------------------
-# Status helper
+# Enhanced status helper with normalized costs
 # ---------------------------------------------------------------------------
 
-def status_summary(*, csv_path: Path | None = None, usage_path: Path | None = None) -> Dict[str, Any]:
-    """Return a JSON-serializable summary of usage vs budgets for each category/mode."""
+def _sum_from_ledger(
+    *,
+    ledger_path: Path | None = None,
+    mode: Optional[str] = None,
+    category: Optional[str] = None,
+    since_ts_ms: Optional[int] = None,
+) -> dict[str, Any]:
+    """Aggregate usage from ledger with both real and normalized costs.
+
+    Returns dict with:
+        - real_usd: sum of actual cost_usd
+        - normalized_usd: sum using provider rates
+        - tokens_in: total input tokens
+        - tokens_out: total output tokens
+        - event_count: number of events
+    """
+    from . import pricing
+
+    rates = pricing.ensure_rates()
+
+    total_real = 0.0
+    total_normalized = 0.0
+    total_tokens_in = 0
+    total_tokens_out = 0
+    count = 0
+
+    for ev in iter_ledger_events(ledger_path=ledger_path):
+        try:
+            ev_mode = ev.get("mode", OPENCLAW_MODE)
+            ev_category = ev.get("category", "Brain")
+            ev_ts = int(ev.get("ts_ms") or 0)
+
+            if mode is not None and ev_mode != mode:
+                continue
+            if category is not None and ev_category != category:
+                continue
+            if since_ts_ms is not None and ev_ts > 0 and ev_ts < since_ts_ms:
+                continue
+
+            cost = float(ev.get("cost_usd") or 0.0)
+            tokens_in = ev.get("tokens_in")
+            tokens_out = ev.get("tokens_out")
+            provider = ev.get("provider")
+            model = ev.get("model")
+
+            total_real += cost
+            count += 1
+
+            if tokens_in is not None:
+                total_tokens_in += int(tokens_in)
+            if tokens_out is not None:
+                total_tokens_out += int(tokens_out)
+
+            # Calculate normalized cost using rates
+            if provider and model and tokens_in is not None and tokens_out is not None:
+                norm_cost = pricing.calculate_normalized_cost(
+                    provider, model, int(tokens_in), int(tokens_out), rates
+                )
+                total_normalized += norm_cost
+            else:
+                # Fall back to real cost if we can't normalize
+                total_normalized += cost
+
+        except Exception:
+            continue
+
+    return {
+        "real_usd": total_real,
+        "normalized_usd": total_normalized,
+        "tokens_in": total_tokens_in,
+        "tokens_out": total_tokens_out,
+        "event_count": count,
+    }
+
+
+def status_summary(
+    *,
+    csv_path: Path | None = None,
+    usage_path: Path | None = None,
+    ledger_path: Path | None = None,
+    view_mode: str = "combined",  # "real", "normalized", "combined"
+) -> dict[str, Any]:
+    """Return a JSON-serializable summary of usage vs budgets.
+
+    view_mode:
+        - "real": actual costs only (Ollama shows $0)
+        - "normalized": estimated rates applied to all providers
+        - "combined": includes both real and normalized columns
+    """
 
     try:
         configs = load_category_configs(csv_path)
@@ -531,28 +618,88 @@ def status_summary(*, csv_path: Path | None = None, usage_path: Path | None = No
         return {"status": "error", "error": f"config_load_failed: {e}"}
 
     usage = Usage.load(usage_path or _usage_path())
+    ledger_path = ledger_path or _ledger_path()
 
-    summary: Dict[str, Any] = {"status": "ok", "modes": {}}
+    summary: dict[str, Any] = {"status": "ok", "view_mode": view_mode, "modes": {}}
 
     for mode in (OPENCLAW_MODE, EXTERNAL_CALL_MODE):
         mode_usage = usage.data.get(mode, {})
-        mode_summary: Dict[str, Any] = {}
+        mode_summary: dict[str, Any] = {}
 
         for category, cfg in configs.items():
-            used = float(mode_usage.get(category, 0.0))
+            # Legacy usage (for backward compat)
+            used_legacy = float(mode_usage.get(category, 0.0))
             limit = cfg.budget_openclaw_usd if mode == OPENCLAW_MODE else cfg.budget_external_usd
-            mode_summary[category] = {
-                "used_usd": used,
+
+            # Enhanced data from ledger
+            ledger_data = _sum_from_ledger(
+                ledger_path=ledger_path,
+                mode=mode,
+                category=category,
+            )
+
+            real_usd = ledger_data["real_usd"]
+            normalized_usd = ledger_data["normalized_usd"]
+            tokens_in = ledger_data["tokens_in"]
+            tokens_out = ledger_data["tokens_out"]
+
+            # Determine which cost to use for budget warnings
+            if view_mode == "real":
+                budget_used = real_usd
+            elif view_mode == "normalized":
+                budget_used = normalized_usd
+            else:  # combined - use normalized for budget % (per user request)
+                budget_used = normalized_usd
+
+            remaining = max(0.0, limit - budget_used) if limit > 0 else None
+            percentage = (budget_used / limit * 100) if limit > 0 else 0.0
+
+            cat_data: dict[str, Any] = {
+                "real_usd": real_usd,
+                "normalized_usd": normalized_usd,
+                "tokens_in": tokens_in,
+                "tokens_out": tokens_out,
+                "tokens_total": tokens_in + tokens_out,
                 "limit_usd": limit,
-                "remaining_usd": max(0.0, limit - used) if limit > 0 else None,
+                "remaining_usd": remaining,
+                "percentage": percentage,
             }
+
+            # For combined mode, also include the deprecated used_usd for backward compat
+            if view_mode == "real":
+                cat_data["used_usd"] = real_usd
+            elif view_mode == "normalized":
+                cat_data["used_usd"] = normalized_usd
+            else:
+                cat_data["used_usd"] = real_usd  # backward compat
+
+            mode_summary[category] = cat_data
 
         summary["modes"][mode] = mode_summary
 
     tz_name = os.getenv("LLM_ROUTER_TZ") or "America/Bogota"
+
+    # Calculate today totals
+    now_ms = int(datetime.now(timezone.utc).timestamp() * 1000)
+    midnight_ms = now_ms - (now_ms % 86400000)  # rough midnight UTC
+    today_data = _sum_from_ledger(ledger_path=ledger_path, since_ts_ms=midnight_ms)
+
     summary["today"] = {
         "tz": tz_name,
-        "total_usd": today_total_usd(tz_name=tz_name),
+        "real_usd": today_data["real_usd"],
+        "normalized_usd": today_data["normalized_usd"],
+        "tokens_total": today_data["tokens_in"] + today_data["tokens_out"],
+    }
+
+    # Include rates metadata for transparency
+    from . import pricing
+    summary["_meta"] = {
+        "rates_source": str(pricing._rates_path()),
+        "view_mode": view_mode,
     }
 
     return summary
+
+
+# Legacy alias for backward compatibility
+status_summary_legacy = status_summary

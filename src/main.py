@@ -47,10 +47,20 @@ def read_request() -> Dict[str, Any]:
     return data
 
 
+def _get_view_mode(args: list[str]) -> str:
+    """Extract view mode from command line args."""
+    if "--real" in args:
+        return "real"
+    if "--normalized" in args:
+        return "normalized"
+    return "combined"  # default
+
+
 def main() -> None:
     # Status mode: inspect budgets/usage instead of routing a task
     if any(arg in ("--status", "-s") for arg in sys.argv[1:]):
-        summary = router_core.status_summary()
+        view_mode = _get_view_mode(sys.argv[1:])
+        summary = router_core.status_summary(view_mode=view_mode)
         json.dump(summary, sys.stdout)
         sys.stdout.write("\n")
         return
