@@ -108,13 +108,26 @@ $ python3 router_v2.py "Describe this image" --category Image_Understanding
 - [ ] Adjust tier boundaries if too aggressive toward cheap models
 - [ ] Add custom keywords for quant/finance terms if needed
 
-### Step 5: Documentation & Cleanup 🔄 IN PROGRESS
+### Step 5: Documentation & Cleanup ✅ COMPLETED 2026-02-07
 
-- [x] Update `SKILL.md` with router v2 architecture, 41 models, monitoring features ✅ 2026-02-07
-- [ ] Remove `model_routing.csv` (archive to `.legacy/`)
-- [ ] Clean up `rates.json` vs `config/models.yaml` (decide which to keep)
-- [ ] Update shell aliases
-- [ ] Deprecate `router_core.py` after v2 proves stable
+- [x] Update `SKILL.md` with router v2 architecture, 41 models, monitoring features ✅
+- [x] Remove `model_routing.csv` (archived to `.legacy/`) ✅
+- [x] Clean up `rates.json` vs `config/models.yaml` — **Decision: KEEP models.yaml** ✅
+- [x] Update shell aliases (already current) ✅
+- [x] Deprecate `router_core.py` — Added deprecation notice ✅
+
+**Cleanup Summary:**
+| File | Action |
+|------|--------|
+| `config/model_routing.csv` | Moved to `.legacy/model_routing.csv` with README |
+| `config/models.yaml` | **RETAINED** as human-readable docs |
+| `src/router_core.py` | Added deprecation notice, kept as fallback |
+| `src/router_v2.py` | Primary router (active) |
+
+**Deprecation Status:**
+- router_core.py functional but marked deprecated
+- Legacy CSV archived with migration guide
+- v2 has 100% usage since deployment (21 requests, 0 fallbacks)
 
 ## Testing Commands
 
@@ -185,9 +198,12 @@ Then restart your OpenClaw gateway to reload.
 | File | Purpose | Status |
 |------|---------|--------|
 | `src/router_v2.py` | Main router, 41 models, policy-aware | ✅ Complete |
-| `config/router_policy.json` | Category-specific restrictions | ✅ Complete |
+| `config/router_policy.yaml` | Category-specific restrictions | ✅ Complete |
 | `src/prompt_classifier/` | 14-dimension classifier | ✅ Complete |
 | `src/main.py` | Skill entry point - v2 wired with fallback | ✅ Complete |
-| `config/models.yaml` | YAML catalog (redundant) | ⏳ Decide: keep or delete |
-| `src/router_core.py` | Legacy router | ⏳ Deprecate after v2 proves stable |
-| `SKILL.md` | Documentation | ⏳ Update |
+| `src/routing_tracker.py` | Decision recording & analytics | ✅ Complete |
+| `config/models.yaml` | Human-readable model catalog | ✅ Kept as docs |
+| `src/router_core.py` | Legacy router (fallback only) | ⚠️ Deprecated |
+| `.legacy/` | Archived model_routing.csv + README | ✅ Archived |
+| `SKILL.md` | Documentation | ✅ Updated |
+| `WORKING.md` | This tracker | ✅ Updated |
