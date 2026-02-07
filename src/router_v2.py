@@ -109,89 +109,454 @@ class RoutingResult:
     reason: str  # human-readable why this was selected
 
 
-# Inline model catalog (converted from models.yaml)
+# Inline model catalog - COMPLETE SET OF ALL SUPPORTED MODELS
+# Generated: 2026-02-07
+# Sources:
+#   - Ollama Cloud: https://ollama.com/search?c=cloud
+#   - Anthropic: Claude CLI (claude models)
+#   - OpenAI: ChatGPT/API (currently quota limited)
+
 DEFAULT_MODEL_CATALOG = {
     "providers": {
-        # OLLAMA CLOUD - Primary (subscription-based)
+        # ========================================================================
+        # OLLAMA CLOUD - Primary (subscription-based, generous limits)
+        # ========================================================================
         "ollama": {
-            "_meta": {"availability": "primary"},
+            "_meta": {
+                "availability": "primary",
+                "note": "Ollama Cloud Pro subscription - session/weekly limits tracked separately",
+            },
             "models": {
+                # Kimi Family (Moonshot AI)
                 "kimi-k2.5": {
                     "name": "Kimi K2.5",
                     "costs": {"input_per_1k": 0.0005, "output_per_1k": 0.0028},
                     "capabilities": {"chat": True, "code": True, "reasoning": True, "vision": True, "long_context": True, "function_calling": True, "json_mode": True, "agentic": True},
-                    "context_window": 262144, "reliability": 0.90,
-                    "tags": ["default", "agentic", "vision", "reasoning"],
+                    "context_window": 262144,
+                    "max_output": 8192,
+                    "reliability": 0.90,
+                    "tags": ["default", "agentic", "vision", "reasoning", "popular"],
                 },
+                "kimi-k2": {
+                    "name": "Kimi K2",
+                    "costs": {"input_per_1k": 0.001, "output_per_1k": 0.003},
+                    "capabilities": {"chat": True, "code": True, "reasoning": True, "vision": False, "long_context": False, "function_calling": True, "json_mode": True},
+                    "context_window": 128000,
+                    "max_output": 4096,
+                    "reliability": 0.88,
+                    "tags": ["balanced", "reasoning", "moe"],
+                },
+                "kimi-k2-thinking": {
+                    "name": "Kimi K2 Thinking",
+                    "costs": {"input_per_1k": 0.0012, "output_per_1k": 0.004},
+                    "capabilities": {"chat": True, "code": True, "reasoning": True, "vision": False, "long_context": False, "function_calling": False, "json_mode": True, "thinking": True},
+                    "context_window": 128000,
+                    "max_output": 4096,
+                    "reliability": 0.87,
+                    "tags": ["reasoning", "thinking", "moe"],
+                },
+                
+                # DeepSeek Family
                 "deepseek-v3.2": {
                     "name": "DeepSeek V3.2",
                     "costs": {"input_per_1k": 0.00028, "output_per_1k": 0.00042},
                     "capabilities": {"chat": True, "code": True, "reasoning": False, "vision": False, "long_context": False, "function_calling": True, "json_mode": True},
-                    "context_window": 128000, "reliability": 0.85,
-                    "tags": ["cheap", "fast", "code"],
+                    "context_window": 128000,
+                    "max_output": 8192,
+                    "reliability": 0.85,
+                    "tags": ["cheap", "fast", "code", "efficient"],
+                },
+                "deepseek-v3.1": {
+                    "name": "DeepSeek V3.1 Terminus",
+                    "costs": {"input_per_1k": 0.0006, "output_per_1k": 0.0017},
+                    "capabilities": {"chat": True, "code": True, "reasoning": True, "vision": False, "long_context": False, "function_calling": True, "json_mode": True, "thinking": True},
+                    "context_window": 128000,
+                    "max_output": 8192,
+                    "reliability": 0.85,
+                    "tags": ["cheap", "code", "thinking", "hybrid"],
+                },
+                "deepseek-r1": {
+                    "name": "DeepSeek R1",
+                    "costs": {"input_per_1k": 0.003, "output_per_1k": 0.007},
+                    "capabilities": {"chat": True, "code": True, "reasoning": True, "vision": False, "long_context": False, "function_calling": False, "json_mode": True, "thinking": True},
+                    "context_window": 128000,
+                    "max_output": 8192,
+                    "reliability": 0.86,
+                    "tags": ["reasoning", "thinking", "expensive"],
+                },
+                
+                # Qwen Family (Alibaba)
+                "qwen3-coder": {
+                    "name": "Qwen3 Coder",
+                    "costs": {"input_per_1k": 0.0005, "output_per_1k": 0.0012},
+                    "capabilities": {"chat": True, "code": True, "reasoning": False, "vision": False, "long_context": False, "function_calling": True, "json_mode": True},
+                    "context_window": 128000,
+                    "max_output": 4096,
+                    "reliability": 0.87,
+                    "tags": ["code", "cheap"],
+                },
+                "qwen3-coder-next": {
+                    "name": "Qwen3 Coder Next",
+                    "costs": {"input_per_1k": 0.0005, "output_per_1k": 0.0012},
+                    "capabilities": {"chat": True, "code": True, "reasoning": False, "vision": False, "long_context": False, "function_calling": True, "json_mode": True, "agentic": True},
+                    "context_window": 128000,
+                    "max_output": 4096,
+                    "reliability": 0.87,
+                    "tags": ["code", "agentic", "cheap"],
+                },
+                "qwen3-vl": {
+                    "name": "Qwen3 VL",
+                    "costs": {"input_per_1k": 0.0005, "output_per_1k": 0.0015},
+                    "capabilities": {"chat": True, "code": True, "reasoning": False, "vision": True, "long_context": False, "function_calling": True, "json_mode": True},
+                    "context_window": 128000,
+                    "max_output": 4096,
+                    "reliability": 0.86,
+                    "tags": ["vision", "code", "multimodal"],
+                },
+                "qwen3-next": {
+                    "name": "Qwen3 Next",
+                    "costs": {"input_per_1k": 0.00015, "output_per_1k": 0.0015},
+                    "capabilities": {"chat": True, "code": True, "reasoning": True, "vision": False, "long_context": False, "function_calling": True, "json_mode": True},
+                    "context_window": 128000,
+                    "max_output": 4096,
+                    "reliability": 0.88,
+                    "tags": ["balanced", "efficient"],
+                },
+                
+                # Google Gemini Family
+                "gemini-3-pro-preview": {
+                    "name": "Gemini 3 Pro Preview",
+                    "costs": {"input_per_1k": 0.00125, "output_per_1k": 0.005},
+                    "capabilities": {"chat": True, "code": True, "reasoning": True, "vision": True, "long_context": True, "function_calling": True, "json_mode": True, "agentic": True},
+                    "context_window": 1050000,  # 1M+ context
+                    "max_output": 65536,
+                    "reliability": 0.90,
+                    "tags": ["long_context", "vision", "reasoning", "powerful"],
                 },
                 "gemini-3-flash-preview": {
                     "name": "Gemini 3 Flash Preview",
                     "costs": {"input_per_1k": 0.00015, "output_per_1k": 0.0006},
                     "capabilities": {"chat": True, "code": True, "reasoning": False, "vision": True, "long_context": True, "function_calling": True, "json_mode": True},
-                    "context_window": 1000000, "reliability": 0.85,
+                    "context_window": 1000000,
+                    "max_output": 65536,
+                    "reliability": 0.85,
                     "tags": ["cheap", "fast", "long_context", "vision"],
+                },
+                
+                # GLM Family (Zhipu AI)
+                "glm-4.7": {
+                    "name": "GLM 4.7",
+                    "costs": {"input_per_1k": 0.00045, "output_per_1k": 0.002},
+                    "capabilities": {"chat": True, "code": True, "reasoning": True, "vision": False, "long_context": False, "function_calling": True, "json_mode": True},
+                    "context_window": 128000,
+                    "max_output": 4096,
+                    "reliability": 0.86,
+                    "tags": ["code", "balanced"],
+                },
+                "glm-4.6": {
+                    "name": "GLM 4.6",
+                    "costs": {"input_per_1k": 0.0002, "output_per_1k": 0.0011},
+                    "capabilities": {"chat": True, "code": True, "reasoning": True, "vision": False, "long_context": False, "function_calling": True, "json_mode": True, "agentic": True},
+                    "context_window": 128000,
+                    "max_output": 4096,
+                    "reliability": 0.85,
+                    "tags": ["cheap", "agentic"],
+                },
+                
+                # Mistral / Ministral Family
+                "ministral-3": {
+                    "name": "Ministral 3",
+                    "costs": {"input_per_1k": 0.0001, "output_per_1k": 0.0003},
+                    "capabilities": {"chat": True, "code": True, "reasoning": False, "vision": True, "long_context": False, "function_calling": True, "json_mode": True},
+                    "context_window": 128000,
+                    "max_output": 4096,
+                    "reliability": 0.85,
+                    "tags": ["cheap", "fast", "vision", "edge"],
+                },
+                
+                # MiniMax Family
+                "minimax-m2": {
+                    "name": "MiniMax M2",
+                    "costs": {"input_per_1k": 0.0003, "output_per_1k": 0.0012},
+                    "capabilities": {"chat": True, "code": True, "reasoning": True, "vision": False, "long_context": False, "function_calling": True, "json_mode": True},
+                    "context_window": 128000,
+                    "max_output": 4096,
+                    "reliability": 0.85,
+                    "tags": ["code", "efficient"],
+                },
+                "minimax-m2.1": {
+                    "name": "MiniMax M2.1",
+                    "costs": {"input_per_1k": 0.0003, "output_per_1k": 0.0012},
+                    "capabilities": {"chat": True, "code": True, "reasoning": True, "vision": False, "long_context": False, "function_calling": True, "json_mode": True},
+                    "context_window": 256000,
+                    "max_output": 4096,
+                    "reliability": 0.86,
+                    "tags": ["code", "multilingual"],
+                },
+                
+                # Devstral Family (Mistral for coding)
+                "devstral-small-2": {
+                    "name": "Devstral Small 2",
+                    "costs": {"input_per_1k": 0.0005, "output_per_1k": 0.0015},
+                    "capabilities": {"chat": True, "code": True, "reasoning": False, "vision": True, "long_context": False, "function_calling": True, "json_mode": True, "agentic": True},
+                    "context_window": 128000,
+                    "max_output": 4096,
+                    "reliability": 0.87,
+                    "tags": ["code", "agentic", "vision"],
+                },
+                "devstral-2": {
+                    "name": "Devstral 2",
+                    "costs": {"input_per_1k": 0.0008, "output_per_1k": 0.0025},
+                    "capabilities": {"chat": True, "code": True, "reasoning": True, "vision": False, "long_context": False, "function_calling": True, "json_mode": True, "agentic": True},
+                    "context_window": 128000,
+                    "max_output": 4096,
+                    "reliability": 0.88,
+                    "tags": ["code", "agentic", "powerful"],
+                },
+                
+                # Specialized Models
+                "cogito-2.1": {
+                    "name": "Cogito 2.1",
+                    "costs": {"input_per_1k": 0.00018, "output_per_1k": 0.00059},
+                    "capabilities": {"chat": True, "code": True, "reasoning": True, "vision": False, "long_context": False, "function_calling": True, "json_mode": True},
+                    "context_window": 128000,
+                    "max_output": 4096,
+                    "reliability": 0.85,
+                    "tags": ["cheap", "balanced", "mit_license"],
+                },
+                "rnj-1": {
+                    "name": "Rnj-1",
+                    "costs": {"input_per_1k": 0.0004, "output_per_1k": 0.0012},
+                    "capabilities": {"chat": True, "code": True, "reasoning": True, "vision": False, "long_context": False, "function_calling": True, "json_mode": True},
+                    "context_window": 128000,
+                    "max_output": 4096,
+                    "reliability": 0.86,
+                    "tags": ["code", "stem", "efficient"],
+                },
+                "nemotron-3-nano": {
+                    "name": "Nemotron 3 Nano",
+                    "costs": {"input_per_1k": 0.0003, "output_per_1k": 0.0012},
+                    "capabilities": {"chat": True, "code": True, "reasoning": True, "vision": False, "long_context": False, "function_calling": True, "json_mode": True, "agentic": True},
+                    "context_window": 128000,
+                    "max_output": 4096,
+                    "reliability": 0.87,
+                    "tags": ["agentic", "efficient"],
                 },
             },
         },
+        
+        # ========================================================================
         # ANTHROPIC - Secondary (API key required)
+        # ========================================================================
         "anthropic": {
-            "_meta": {"availability": "secondary"},
+            "_meta": {
+                "availability": "secondary",
+                "api_type": "anthropic-messages",
+                "note": "Fallback when Ollama unavailable or for specific capabilities",
+            },
             "models": {
+                # Claude 4.x Series (Current Generation)
                 "claude-sonnet-4-5": {
                     "name": "Claude Sonnet 4.5",
                     "costs": {"input_per_1k": 0.003, "output_per_1k": 0.015},
                     "capabilities": {"chat": True, "code": True, "reasoning": True, "vision": True, "long_context": True, "function_calling": True, "json_mode": True},
-                    "context_window": 200000, "reliability": 0.95,
-                    "tags": ["default", "reliable", "balanced"],
+                    "context_window": 200000,
+                    "max_output": 64000,
+                    "reliability": 0.95,
+                    "tags": ["default", "reliable", "balanced", "workhorse"],
+                },
+                "claude-opus-4-5": {
+                    "name": "Claude Opus 4.5",
+                    "costs": {"input_per_1k": 0.005, "output_per_1k": 0.025},
+                    "capabilities": {"chat": True, "code": True, "reasoning": True, "vision": True, "long_context": True, "function_calling": True, "json_mode": True},
+                    "context_window": 200000,
+                    "max_output": 32000,
+                    "reliability": 0.94,
+                    "tags": ["powerful", "reasoning", "expensive"],
                 },
                 "claude-opus-4": {
                     "name": "Claude Opus 4",
                     "costs": {"input_per_1k": 0.015, "output_per_1k": 0.075},
                     "capabilities": {"chat": True, "code": True, "reasoning": True, "vision": True, "long_context": True, "function_calling": True, "json_mode": True},
-                    "context_window": 200000, "reliability": 0.95,
-                    "tags": ["powerful", "expensive", "reliable"],
+                    "context_window": 200000,
+                    "max_output": 32000,
+                    "reliability": 0.95,
+                    "tags": ["powerhouse", "expensive", "reliable", "max_quality"],
                 },
-                "claude-haiku-3-5": {
-                    "name": "Claude Haiku 3.5",
-                    "costs": {"input_per_1k": 0.0008, "output_per_1k": 0.004},
-                    "capabilities": {"chat": True, "code": False, "reasoning": False, "vision": False, "long_context": False, "function_calling": True, "json_mode": True},
-                    "context_window": 200000, "reliability": 0.90,
+                "claude-haiku-4-5": {
+                    "name": "Claude Haiku 4.5",
+                    "costs": {"input_per_1k": 0.001, "output_per_1k": 0.005},
+                    "capabilities": {"chat": True, "code": False, "reasoning": False, "vision": False, "long_context": True, "function_calling": True, "json_mode": True},
+                    "context_window": 200000,
+                    "max_output": 8192,
+                    "reliability": 0.90,
                     "tags": ["cheap", "fast", "simple"],
+                },
+                
+                # Claude 3.x Series (Previous Generation - Still Available)
+                "claude-3-7-sonnet": {
+                    "name": "Claude 3.7 Sonnet",
+                    "costs": {"input_per_1k": 0.003, "output_per_1k": 0.015},
+                    "capabilities": {"chat": True, "code": True, "reasoning": False, "vision": True, "long_context": True, "function_calling": True, "json_mode": True},
+                    "context_window": 200000,
+                    "max_output": 8192,
+                    "reliability": 0.94,
+                    "tags": ["balanced", "legacy"],
+                },
+                "claude-3-5-sonnet": {
+                    "name": "Claude 3.5 Sonnet",
+                    "costs": {"input_per_1k": 0.003, "output_per_1k": 0.015},
+                    "capabilities": {"chat": True, "code": True, "reasoning": False, "vision": True, "long_context": True, "function_calling": True, "json_mode": True},
+                    "context_window": 200000,
+                    "max_output": 8192,
+                    "reliability": 0.93,
+                    "tags": ["balanced", "legacy"],
+                },
+                "claude-3-5-haiku": {
+                    "name": "Claude 3.5 Haiku",
+                    "costs": {"input_per_1k": 0.0008, "output_per_1k": 0.004},
+                    "capabilities": {"chat": True, "code": False, "reasoning": False, "vision": False, "long_context": True, "function_calling": True, "json_mode": True},
+                    "context_window": 200000,
+                    "max_output": 4096,
+                    "reliability": 0.89,
+                    "tags": ["cheap", "fast", "legacy"],
                 },
             },
         },
-        # OPENAI - Quota limited
+        
+        # ========================================================================
+        # OPENAI - Quota Limited (ChatGPT subscription limits exceeded)
+        # ========================================================================
         "openai": {
-            "_meta": {"availability": "quota_limited"},
+            "_meta": {
+                "availability": "quota_limited",
+                "api_type": "openai-chat",
+                "note": "Currently hitting subscription limits - used as last resort",
+            },
             "models": {
+                # GPT-5 Family
                 "gpt-5.2": {
                     "name": "GPT-5.2",
                     "costs": {"input_per_1k": 0.005, "output_per_1k": 0.015},
                     "capabilities": {"chat": True, "code": True, "reasoning": True, "vision": True, "long_context": True, "function_calling": True, "json_mode": True},
-                    "context_window": 400000, "reliability": 0.95,
+                    "context_window": 400000,
+                    "max_output": 128000,
+                    "reliability": 0.95,
                     "tags": ["default", "powerful"],
                     "quota_limited": True,
                 },
-                "o3-mini": {
-                    "name": "o3-mini",
-                    "costs": {"input_per_1k": 0.0011, "output_per_1k": 0.0044},
-                    "capabilities": {"chat": True, "code": True, "reasoning": True, "vision": False, "long_context": False, "function_calling": False, "json_mode": True},
-                    "context_window": 128000, "reliability": 0.92,
-                    "tags": ["reasoning", "cheap"],
+                "gpt-5.2-pro": {
+                    "name": "GPT-5.2 Pro",
+                    "costs": {"input_per_1k": 0.021, "output_per_1k": 0.168},
+                    "capabilities": {"chat": True, "code": True, "reasoning": True, "vision": False, "long_context": True, "function_calling": True, "json_mode": True},
+                    "context_window": 400000,
+                    "max_output": 128000,
+                    "reliability": 0.94,
+                    "tags": ["powerful", "expensive"],
+                    "quota_limited": True,
+                },
+                "gpt-5.1": {
+                    "name": "GPT-5.1",
+                    "costs": {"input_per_1k": 0.0005, "output_per_1k": 0.0015},
+                    "capabilities": {"chat": True, "code": True, "reasoning": False, "vision": False, "long_context": False, "function_calling": True, "json_mode": True},
+                    "context_window": 200000,
+                    "max_output": 65536,
+                    "reliability": 0.92,
+                    "tags": ["balanced"],
+                    "quota_limited": True,
+                },
+                "gpt-5-mini": {
+                    "name": "GPT-5 Mini",
+                    "costs": {"input_per_1k": 0.00015, "output_per_1k": 0.0006},
+                    "capabilities": {"chat": True, "code": True, "reasoning": False, "vision": False, "long_context": False, "function_calling": True, "json_mode": True},
+                    "context_window": 200000,
+                    "max_output": 65536,
+                    "reliability": 0.90,
+                    "tags": ["cheap", "fast"],
+                    "quota_limited": True,
+                },
+                "gpt-5-nano": {
+                    "name": "GPT-5 Nano",
+                    "costs": {"input_per_1k": 0.00005, "output_per_1k": 0.0004},
+                    "capabilities": {"chat": True, "code": False, "reasoning": False, "vision": False, "long_context": False, "function_calling": False, "json_mode": True},
+                    "context_window": 128000,
+                    "max_output": 32768,
+                    "reliability": 0.87,
+                    "tags": ["cheap", "simple"],
+                    "quota_limited": True,
+                },
+                
+                # GPT-4 Family
+                "gpt-4o": {
+                    "name": "GPT-4o",
+                    "costs": {"input_per_1k": 0.0025, "output_per_1k": 0.01},
+                    "capabilities": {"chat": True, "code": True, "reasoning": False, "vision": True, "long_context": False, "function_calling": True, "json_mode": True},
+                    "context_window": 128000,
+                    "max_output": 16384,
+                    "reliability": 0.93,
+                    "tags": ["vision", "balanced"],
                     "quota_limited": True,
                 },
                 "gpt-4o-mini": {
                     "name": "GPT-4o Mini",
                     "costs": {"input_per_1k": 0.00015, "output_per_1k": 0.0006},
                     "capabilities": {"chat": True, "code": True, "reasoning": False, "vision": True, "long_context": False, "function_calling": True, "json_mode": True},
-                    "context_window": 128000, "reliability": 0.88,
+                    "context_window": 128000,
+                    "max_output": 16384,
+                    "reliability": 0.88,
                     "tags": ["cheap", "fast", "vision"],
+                    "quota_limited": True,
+                },
+                
+                # O-series (Reasoning Models)
+                "o1": {
+                    "name": "o1",
+                    "costs": {"input_per_1k": 0.015, "output_per_1k": 0.06},
+                    "capabilities": {"chat": True, "code": True, "reasoning": True, "vision": True, "long_context": False, "function_calling": False, "json_mode": True, "thinking": True},
+                    "context_window": 200000,
+                    "max_output": 100000,
+                    "reliability": 0.94,
+                    "tags": ["reasoning", "thinking", "expensive"],
+                    "quota_limited": True,
+                },
+                "o1-mini": {
+                    "name": "o1-mini",
+                    "costs": {"input_per_1k": 0.0011, "output_per_1k": 0.0044},
+                    "capabilities": {"chat": True, "code": True, "reasoning": True, "vision": False, "long_context": False, "function_calling": False, "json_mode": True, "thinking": True},
+                    "context_window": 128000,
+                    "max_output": 65536,
+                    "reliability": 0.91,
+                    "tags": ["reasoning", "thinking", "cheap"],
+                    "quota_limited": True,
+                },
+                "o3": {
+                    "name": "o3",
+                    "costs": {"input_per_1k": 0.002, "output_per_1k": 0.008},
+                    "capabilities": {"chat": True, "code": True, "reasoning": True, "vision": False, "long_context": False, "function_calling": False, "json_mode": True, "thinking": True},
+                    "context_window": 200000,
+                    "max_output": 100000,
+                    "reliability": 0.94,
+                    "tags": ["reasoning", "thinking"],
+                    "quota_limited": True,
+                },
+                "o3-mini": {
+                    "name": "o3-mini",
+                    "costs": {"input_per_1k": 0.0011, "output_per_1k": 0.0044},
+                    "capabilities": {"chat": True, "code": True, "reasoning": True, "vision": False, "long_context": False, "function_calling": False, "json_mode": True, "thinking": True},
+                    "context_window": 128000,
+                    "max_output": 65536,
+                    "reliability": 0.92,
+                    "tags": ["reasoning", "thinking", "cheap"],
+                    "quota_limited": True,
+                },
+                "o4-mini": {
+                    "name": "o4-mini",
+                    "costs": {"input_per_1k": 0.0011, "output_per_1k": 0.0044},
+                    "capabilities": {"chat": True, "code": True, "reasoning": True, "vision": False, "long_context": False, "function_calling": False, "json_mode": True, "thinking": True},
+                    "context_window": 128000,
+                    "max_output": 65536,
+                    "reliability": 0.92,
+                    "tags": ["reasoning", "thinking", "cheap"],
                     "quota_limited": True,
                 },
             },
@@ -302,6 +667,13 @@ class ModelCatalog:
     def all_models(self) -> List[ModelMatch]:
         """List all loaded models."""
         return list(self._models.values())
+    
+    def count_models(self) -> Dict[str, int]:
+        """Count models by provider."""
+        counts = {}
+        for model in self._models.values():
+            counts[model.provider] = counts.get(model.provider, 0) + 1
+        return counts
 
 
 class Router:
@@ -439,8 +811,19 @@ def main():
     import sys
     import json
     
+    # Special command to list all models
+    if len(sys.argv) == 2 and sys.argv[1] == "--list-models":
+        router = Router()
+        counts = router.catalog.count_models()
+        print(json.dumps({
+            "total": sum(counts.values()),
+            "by_provider": counts,
+        }, indent=2))
+        return
+    
     if len(sys.argv) < 2:
         print("Usage: python router_v2.py 'Your prompt here' [--category Coding]")
+        print("       python router_v2.py --list-models")
         sys.exit(1)
     
     prompt = sys.argv[1]
