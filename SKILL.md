@@ -1,23 +1,49 @@
 ---
 name: llm-router
-description: Universal brain skill for OpenClaw that routes LLM calls via the external llm-router, then dispatches to the appropriate LLM CLI backend (Claude, OpenAI, or others) based on router output. Use when an agent needs powerful model selection and backend-agnostic LLM execution.
+description: Universal brain skill for OpenClaw that routes LLM calls via capability-aware model selection (v2), then dispatches to the appropriate LLM CLI backend (Claude, OpenAI, Ollama, or others). Features 41 models, tier-based classification, cost-optimized routing, and unified usage tracking.
 ---
 
 # llm-router Skill
 
-This skill exposes your external **llm-router** as a single, backend-agnostic "brain" for OpenClaw agents (main and sub-agents).
+This skill provides **capability-aware model routing** for OpenClaw agents. It classifies prompts by complexity (tier), selects the best model from a 41-model catalog, and dispatches to the appropriate backend CLI.
 
 ## What this skill does
 
-- Accepts a **category** (e.g. `Coding`, `Brain`, `WebSearch`) and chat-style **messages`**.
-- Calls your configured `llm-router` CLI to select:
-  - Provider (e.g. `anthropic`, `openai`, `custom`)
-  - Model (e.g. `claude-3.7-sonnet`)
-  - Backend identifier (e.g. `claude-cli`, `openai-cli`, `http`)
-- Dispatches the request to the correct **LLM backend CLI** based on router output.
-- Returns a **normalized chat-style response** plus optional debug metadata.
+- **Classifies prompts** by complexity using a 14-dimension classifier (SIMPLE/MEDIUM/COMPLEX/REASONING)
+- **Auto-detects categories** from prompt content (Coding, Brain, Web Search, etc.)
+- Selects from **41 models** across 3 providers with policy-driven constraints
+- Supports **cost-optimized mode** to prefer cheaper models for lower-complexity tasks
+- Dispatches to the correct **LLM backend CLI** (Claude, OpenAI, Ollama Cloud)
+- **Tracks all routing decisions** for analytics and debugging
+- Returns a **normalized chat-style response** plus routing metadata
 
-Agents never talk to Claude CLI or other CLIs directly—they just call this skill.
+Agents never talk to LLM CLIs directly—they just call this skill with their task.
+
+## Router v2 Architecture
+
+The skill uses a two-layer routing system:
+
+### Layer 1: Classification & Selection (router_v2)
+- **Prompt Classifier**: 14-dimension analysis (length, code patterns, reasoning markers, etc.)
+- **Tier Assignment**: SIMPLE → MEDIUM → COMPLEX → REASONING
+- **Model Catalog**: 41 models with capability tags, cost profiles, context windows
+- **Policy Engine**: Category-specific rules (max cost, required capabilities, preferred models)
+- **Cost Optimization**: Optional mode to prefer cheaper models for lower tiers
+
+### Layer 2: Backend Dispatch
+- Maps selected model to appropriate CLI backend
+- Handles provider-specific authentication and formatting
+- Returns normalized response structure
+
+## Model Catalog (41 Models)
+
+| Provider | Count | Key Models | Cost Range |
+|----------|-------|------------|------------|
+| **Ollama Cloud** | 22 | kimi-k2.5 (agentic/vision), deepseek-v3.2 (cheap), qwen3-coder, devstral-2, gemini-3-pro, etc. | $0.0002 - $0.0031/1K |
+| **Anthropic** | 7 | claude-sonnet-4-5 (workhorse), claude-opus-4/4-5 (powerful), haiku-4-5 (cheap) | $0.001 - $0.075/1K |
+| **OpenAI** | 12 | gpt-5.2, o3-mini, o4-mini, etc. | $0.00005 - $0.168/1K |
+
+**Model capabilities tracked:** chat, code, reasoning, vision, long_context, function_calling, json_mode, agentic, thinking
 
 ## Inputs
 
@@ -71,6 +97,41 @@ The skill returns a JSON object:
 
 Agents should generally use `response.content` as the assistant text and treat `raw` as debugging/telemetry.
 
+## Routing Features
+
+### Category Auto-Detection
+
+If no `category` is specified, the router auto-detects from prompt content:
+
+| Detected Pattern | Category | Models Considered |
+|------------------|----------|-------------------|
+| Code/build/implement/debug/error | Coding | qwen3-coder, devstral-2, kimi-k2.5 |
+| Write/draft/email/content | Writing_Content | kimi, deepseek-v3.2 |
+| Search/latest/news/lookup | Web_Search | Filters out expensive models |
+| Explain/analyze/compare/why | Brain | deepseek-v3.1, kimi-k2.5 |
+| Short/simple greetings/math | Simple | ministral-3 (cheapest) |
+
+### Cost-Optimized Mode
+
+Enable to prefer cheaper models for SIMPLE/MEDIUM tiers while keeping premium models for COMPLEX/REASONING:
+
+```bash
+python3 -m src.router_v2 "Your prompt" --cost-optimized
+```
+
+**Effect:**
+- SIMPLE/MEDIUM tasks → MiniMax, DeepSeek (50-60% cheaper)
+- COMPLEX/REASONING tasks → Kimi, Claude (best capabilities)
+
+### Explicit Model Override
+
+For backwards compatibility, explicit model hints in prompt text:
+```
+Model=anthropic/claude-sonnet-4-5 Explain quantum mechanics
+```
+
+This bypasses classification and forces the specified model.
+
 ## Configuration
 
 This skill is **path-agnostic**. All integration details are provided via environment variables or a config file when wiring it into an OpenClaw instance.
@@ -97,14 +158,17 @@ llm-router <command> [args]
 | Command | Description | Example |
 |---------|-------------|---------|
 | `dashboard` | Full overview: sync + ledger + log + status | `llm-router dashboard` |
-| `status` | Pretty budget table (combined view — default) | `llm-router status` |
-| `status --real` | Real costs only (Ollama shows \$0) | `llm-router status --real` |
-| `status --normalized` | Normalized rates for cost comparison | `llm-router status --normalized` |
-| `status-raw` | Raw JSON budget data | `llm-router status-raw \| jq` |
-| `log [N]` | Status snapshot history (default: 10) | `llm-router log 5` |
-| `ledger [N]` | Individual usage entries (default: 20) | `llm-router ledger 10` |
+| `status` | Pretty budget table (includes routing stats) | `llm-router status` |
+| `status --real` | Real costs only | `llm-router status --real` |
+| `status --normalized` | Normalized rates for comparison | `llm-router status --normalized` |
+| `why` | Explain last routing decision | `python3 -m src.main --why` |
+| `routing-stats` | 24h analytics (v2 vs legacy, tier breakdown) | `python3 -m src.main --routing-stats` |
+| `test-v2` | Test routing without executing (see tier/model) | `python3 -m src.main --test-v2 "Write code"` |
+| `status-raw` | Raw JSON budget + routing stats | `llm-router status-raw \| jq .routing_stats` |
+| `log [N]` | Status snapshot history | `llm-router log 5` |
+| `ledger [N]` | Individual usage entries | `llm-router ledger 10` |
 | `sync` | Import OpenClaw transcripts | `llm-router sync \| jq` |
-| `cron` | Sequential import → snapshot (for cron) | `llm-router cron` |
+| `cron` | Sequential import → snapshot | `llm-router cron` |
 | `help` | Show help message | `llm-router help` |
 
 ### View modes (cost tracking)
@@ -230,6 +294,91 @@ Typical environment variables:
   - `LLM_ROUTER_TZ` — timezone used for "today" totals in `--status` (default: `America/Bogota`)
 
 The concrete environment variable names and supported backends are defined in this repo's `src/` implementation.
+
+## Monitoring & Analytics
+
+### Routing Decision Tracking
+
+Every routing decision is recorded with full context:
+
+```bash
+# Show last routing decision with classification signals
+python3 -m src.main --why
+```
+
+Output includes:
+- Router version (v2 vs legacy)
+- Tier assignment (SIMPLE/MEDIUM/COMPLEX/REASONING)
+- Selected model and provider
+- Classification signals (why it chose that tier)
+- Capabilities matched
+- Selection reason (cost, preferred rank, reliability)
+
+### Routing Statistics
+
+24-hour analytics on routing behavior:
+
+```bash
+# Default: last 24 hours
+python3 -m src.main --routing-stats
+
+# Last 6 hours
+python3 -m src.main --routing-stats --hours 6
+```
+
+Output includes:
+- Total requests
+- v2 vs legacy percentage
+- Tier distribution (by count)
+- Model usage distribution
+- Provider breakdown
+- Average cost per 1K tokens
+
+**Included in `--status`:**
+```bash
+llm-router status | jq '.routing_stats'
+```
+
+## Policy Configuration
+
+Edit `config/router_policy.yaml` to customize routing behavior:
+
+```yaml
+# Globally disable specific models or providers
+disabled_models: []
+disabled_providers: []
+
+# Per-category policies
+category_policies:
+  Coding:
+    allowed_tiers: [MEDIUM, COMPLEX, REASONING]
+    max_cost_per_1k: 0.020
+    required_capabilities: [code]
+    preferred_models:
+      - ollama/kimi-k2.5
+      - ollama/qwen3-coder-next
+    exclude_quota_limited: true
+
+  Brain:
+    allowed_tiers: [MEDIUM, COMPLEX]
+    max_cost_per_1k: 0.010
+    required_capabilities: [chat, reasoning]
+    cost_optimized: false  # Prefer quality over cost
+
+# Global defaults
+global_limits:
+  max_cost_per_1k: 0.050
+  exclude_quota_limited: true
+  cost_optimized: false
+```
+
+**Key options:**
+- `allowed_tiers` — Which complexity tiers can be used
+- `max_cost_per_1k` — Maximum cost ceiling
+- `required_capabilities` — Must-have model capabilities
+- `preferred_models` — Ordered list of preferred models
+- `exclude_models` — Per-category exclusions
+- `cost_optimized` — Prefer cheaper models for this category
 
 ## How agents should use this skill
 
