@@ -3,7 +3,8 @@
 Replaces router_core.py with a cleaner architecture:
 1. Classify prompt using ported ClawRouter logic
 2. Map tier to capability requirements
-3. Select best available model from catalog
+3. Apply policy constraints (disabled models, category rules)
+4. Select best available model from catalog
 
 Usage:
     from router_v2 import Router, RoutingRequest
@@ -65,6 +66,7 @@ class RoutingRequest:
     required_capabilities: Optional[Set[str]] = None  # manual override
     max_cost_per_1k: Optional[float] = None  # manual budget override
     exclude_quota_limited: bool = True  # skip OpenAI if True
+    exclude_models: Optional[Set[str]] = None  # per-request exclusions
 
 
 @dataclass
@@ -86,6 +88,7 @@ class ModelMatch:
     # Scoring metadata
     capability_score: int  # how many required caps matched
     tag_score: int  # how many preferred tags matched
+    preferred_rank: int = 999  # rank in preferred list (lower = better)
 
 
 @dataclass
@@ -107,6 +110,7 @@ class RoutingResult:
     candidates_considered: int
     quota_limited: bool
     reason: str  # human-readable why this was selected
+    policy_applied: Optional[str] = None  # which category policy was used
 
 
 # Inline model catalog - COMPLETE SET OF ALL SUPPORTED MODELS
@@ -118,9 +122,9 @@ class RoutingResult:
 
 DEFAULT_MODEL_CATALOG = {
     "providers": {
-        # ========================================================================
+        # ==========================================================================================
         # OLLAMA CLOUD - Primary (subscription-based, generous limits)
-        # ========================================================================
+        # ==========================================================================================
         "ollama": {
             "_meta": {
                 "availability": "primary",
@@ -228,7 +232,7 @@ DEFAULT_MODEL_CATALOG = {
                     "name": "Gemini 3 Pro Preview",
                     "costs": {"input_per_1k": 0.00125, "output_per_1k": 0.005},
                     "capabilities": {"chat": True, "code": True, "reasoning": True, "vision": True, "long_context": True, "function_calling": True, "json_mode": True, "agentic": True},
-                    "context_window": 1050000,  # 1M+ context
+                    "context_window": 1050000,
                     "max_output": 65536,
                     "reliability": 0.90,
                     "tags": ["long_context", "vision", "reasoning", "powerful"],
@@ -345,9 +349,9 @@ DEFAULT_MODEL_CATALOG = {
             },
         },
         
-        # ========================================================================
+        # ==========================================================================================
         # ANTHROPIC - Secondary (API key required)
-        # ========================================================================
+        # ==========================================================================================
         "anthropic": {
             "_meta": {
                 "availability": "secondary",
@@ -424,9 +428,9 @@ DEFAULT_MODEL_CATALOG = {
             },
         },
         
-        # ========================================================================
+        # ==========================================================================================
         # OPENAI - Quota Limited (ChatGPT subscription limits exceeded)
-        # ========================================================================
+        # ==========================================================================================
         "openai": {
             "_meta": {
                 "availability": "quota_limited",
@@ -565,18 +569,120 @@ DEFAULT_MODEL_CATALOG = {
 }
 
 
-class ModelCatalog:
-    """Loads and queries the model catalog."""
+class RouterPolicy:
+    """Loads and applies routing policy from config/router_policy.yaml"""
     
-    def __init__(self, catalog_data: Optional[Dict] = None):
+    def __init__(self, policy_path: Optional[Path] = None):
+        self.path = policy_path or self._default_path()
+        self._data: Dict = {}
+        self._load()
+    
+    def _default_path(self) -> Path:
+        """Find router_policy.yaml in config directory."""
+        repo_root = Path(__file__).resolve().parent.parent
+        return repo_root / "config" / "router_policy.yaml"
+    
+    def _load(self) -> None:
+        """Load policy from JSON/YAML if it exists, otherwise use defaults."""
+        # Try JSON first (no external dependencies)
+        json_path = self.path.with_suffix(".json")
+        if json_path.exists():
+            try:
+                import json
+                with open(json_path, "r") as f:
+                    self._data = json.load(f)
+                return
+            except Exception:
+                pass  # Fall through to YAML or defaults
+        
+        # Try YAML if JSON not available
+        if self.path.exists():
+            try:
+                import yaml
+                with open(self.path, "r") as f:
+                    self._data = yaml.safe_load(f) or {}
+                return
+            except ImportError:
+                pass  # Fall through to defaults
+        
+        # Default policy: no restrictions
+        self._data = {
+            "disabled_models": [],
+            "disabled_providers": [],
+            "category_policies": {},
+            "global_limits": {
+                "max_cost_per_1k": 0.050,
+                "exclude_quota_limited": True,
+                "default_tier_on_ambiguous": "MEDIUM",
+            },
+        }
+    
+    @property
+    def disabled_models(self) -> Set[str]:
+        """Globally disabled model IDs."""
+        return set(self._data.get("disabled_models", []))
+    
+    @property
+    def disabled_providers(self) -> Set[str]:
+        """Globally disabled providers."""
+        return set(self._data.get("disabled_providers", []))
+    
+    def get_category_policy(self, category: str) -> Dict:
+        """Get policy for a specific category (legacy name)."""
+        # Normalize category name
+        cat_key = category.replace(" ", "_").lower()
+        policies = self._data.get("category_policies", {})
+        
+        # Try exact match first
+        if cat_key in policies:
+            return policies[cat_key]
+        
+        # Try common variations
+        variations = {
+            "heartbeat": "Heartbeat",
+            "primary_llm": "Primary_LLM",
+            "brain": "Brain",
+            "writing_content": "Writing_Content",
+            "web_search": "Web_Search",
+            "coding": "Coding",
+            "image_understanding": "Image_Understanding",
+            "voice": "Voice",
+        }
+        if cat_key in variations:
+            return policies.get(variations[cat_key], {})
+        
+        return {}
+    
+    @property
+    def global_limits(self) -> Dict:
+        """Global limit defaults."""
+        return self._data.get("global_limits", {
+            "max_cost_per_1k": 0.050,
+            "exclude_quota_limited": True,
+            "default_tier_on_ambiguous": "MEDIUM",
+        })
+
+
+class ModelCatalog:
+    """Loads and queries the model catalog with policy filtering."""
+    
+    def __init__(self, catalog_data: Optional[Dict] = None, policy: Optional[RouterPolicy] = None):
         self._data = catalog_data or DEFAULT_MODEL_CATALOG
+        self.policy = policy or RouterPolicy()
         self._models: Dict[str, ModelMatch] = {}
         self._load()
     
     def _load(self) -> None:
-        """Build flat model lookup from catalog data."""
+        """Build flat model lookup from catalog data, applying policy filters."""
+        disabled_models = self.policy.disabled_models
+        disabled_providers = self.policy.disabled_providers
+        
         for provider, pdata in self._data.get("providers", {}).items():
             if provider.startswith("_"):
+                continue
+            
+            # Skip disabled providers
+            if provider in disabled_providers:
                 continue
             
             provider_meta = pdata.get("_meta", {})
@@ -584,6 +690,11 @@ class ModelCatalog:
             
             for model_id, mdata in pdata.get("models", {}).items():
                 full_id = f"{provider}/{model_id}"
+                
+                # Skip globally disabled models
+                if full_id in disabled_models:
+                    continue
+                
                 costs = mdata.get("costs", {})
                 input_cost = costs.get("input_per_1k", 0.0)
                 output_cost = costs.get("output_per_1k", 0.0)
@@ -616,13 +727,21 @@ class ModelCatalog:
         preferred_tags: Set[str],
         min_context: int = 0,
         exclude_quota_limited: bool = True,
+        per_request_exclusions: Optional[Set[str]] = None,
+        preferred_models_order: Optional[List[str]] = None,
     ) -> List[ModelMatch]:
         """Find all models matching the criteria, scored and sorted."""
         matches = []
+        exclusions = per_request_exclusions or set()
+        preferred_order = preferred_models_order or []
         
         for model in self._models.values():
             # Skip quota-limited if requested
             if exclude_quota_limited and model.quota_limited:
+                continue
+            
+            # Skip per-request exclusions
+            if model.full_id in exclusions:
                 continue
             
             # Check capability requirements
@@ -636,6 +755,12 @@ class ModelCatalog:
             # Check context window
             if min_context > 0 and model.context_window < min_context:
                 continue
+            
+            # Calculate preferred rank (lower = better)
+            try:
+                preferred_rank = preferred_order.index(model.full_id)
+            except ValueError:
+                preferred_rank = 999
             
             # Score the match
             match = ModelMatch(
@@ -651,13 +776,14 @@ class ModelCatalog:
                 reliability=model.reliability,
                 tags=model.tags,
                 quota_limited=model.quota_limited,
-                capability_score=len(required_caps),  # all required matched
+                capability_score=len(required_caps),
                 tag_score=len(preferred_tags & model.tags),
+                preferred_rank=preferred_rank,
             )
             matches.append(match)
         
-        # Sort: prefer matches with more preferred tags, then lower cost, then higher reliability
-        matches.sort(key=lambda m: (-m.tag_score, m.cost_per_1k, -m.reliability))
+        # Sort: preferred rank first, then tag score, then cost, then reliability
+        matches.sort(key=lambda m: (m.preferred_rank, -m.tag_score, m.cost_per_1k, -m.reliability))
         return matches
     
     def get_model(self, full_id: str) -> Optional[ModelMatch]:
@@ -677,40 +803,83 @@ class ModelCatalog:
 
 
 class Router:
-    """Main router interface using capability-aware selection."""
+    """Main router interface using capability-aware selection with policy constraints."""
     
-    def __init__(self, catalog_path: Optional[Path] = None):
-        self.catalog = ModelCatalog(catalog_path)
+    def __init__(self, catalog_path: Optional[Path] = None, policy_path: Optional[Path] = None):
+        self.policy = RouterPolicy(policy_path)
+        self.catalog = ModelCatalog(catalog_path, self.policy)
     
     def route(self, request: RoutingRequest) -> RoutingResult:
         """Route a request to the best available model."""
         
-        # Step 1: Classify prompt (unless category hint provided)
+        # Step 1: Determine category and tier
+        category = None
         if request.category_hint:
-            # Map category hints to tiers
-            tier = self._category_to_tier(request.category_hint)
+            category = request.category_hint
+            tier = self._category_to_tier(category)
             confidence = 1.0
-            signals = [f"category_hint={request.category_hint}"]
+            signals = [f"category_hint={category}"]
         else:
             classification = classify_prompt(
                 prompt=request.prompt,
                 system_prompt=request.system_prompt,
                 estimated_tokens=request.estimated_tokens,
             )
-            tier = classification.tier or "MEDIUM"  # default on ambiguous
+            tier = classification.tier
+            
+            # If ambiguous, check global default or policy default
+            if tier is None:
+                tier = self._get_default_tier()
+                signals = classification.signals + [f"ambiguous_default={tier}"]
+            else:
+                signals = classification.signals
+            
             confidence = classification.confidence
-            signals = classification.signals
         
-        # Step 2: Determine capability requirements
+        # Step 2: Get constraints from category policy or tier profile
+        cat_policy = self.policy.get_category_policy(category) if category else {}
+        
+        # Determine required capabilities
         if request.required_capabilities:
             required_caps = request.required_capabilities
-            cost_ceiling = request.max_cost_per_1k or 0.50  # generous default
+        elif "required_capabilities" in cat_policy:
+            required_caps = set(cat_policy["required_capabilities"])
         else:
-            profile = TIER_PROFILES[tier]
-            required_caps = profile["required_capabilities"]
-            cost_ceiling = request.max_cost_per_1k or profile["cost_ceiling_per_1k"]
+            # Check allowed_tiers from policy - if tier not allowed, bump up
+            allowed_tiers = cat_policy.get("allowed_tiers")
+            if allowed_tiers and tier not in allowed_tiers:
+                # Bump to minimum allowed tier
+                tier = allowed_tiers[0]
+            required_caps = TIER_PROFILES[tier]["required_capabilities"]
         
-        preferred_tags = TIER_PROFILES[tier]["preferred_tags"]
+        # Determine cost ceiling
+        if request.max_cost_per_1k:
+            cost_ceiling = request.max_cost_per_1k
+        elif "max_cost_per_1k" in cat_policy:
+            cost_ceiling = cat_policy["max_cost_per_1k"]
+        else:
+            cost_ceiling = TIER_PROFILES[tier]["cost_ceiling_per_1k"]
+        
+        # Determine preferred tags
+        if "preferred_tags" in cat_policy:
+            preferred_tags = set(cat_policy["preferred_tags"])
+        else:
+            preferred_tags = TIER_PROFILES[tier]["preferred_tags"]
+        
+        # Determine exclusions
+        exclusions = set()
+        if request.exclude_models:
+            exclusions.update(request.exclude_models)
+        if "exclude_models" in cat_policy:
+            exclusions.update(cat_policy["exclude_models"])
+        
+        # Determine preferred models order
+        preferred_order = cat_policy.get("preferred_models", [])
+        
+        # Determine quota-limited exclusion
+        exclude_quota = request.exclude_quota_limited
+        if "exclude_quota_limited" in cat_policy:
+            exclude_quota = cat_policy["exclude_quota_limited"]
         
         # Step 3: Find matching models
         min_context = request.estimated_tokens * 2 if request.estimated_tokens else 0
@@ -719,55 +888,78 @@ class Router:
             cost_ceiling=cost_ceiling,
             preferred_tags=preferred_tags,
             min_context=min_context,
-            exclude_quota_limited=request.exclude_quota_limited,
+            exclude_quota_limited=exclude_quota,
+            per_request_exclusions=exclusions,
+            preferred_models_order=preferred_order,
         )
         
-        # Step 4: Handle no matches
+        # Step 4: Handle no matches with fallbacks
+        fallback_reason = None
+        
         if not matches:
+            fallback_reason = "No matches with constraints"
+            
             # Try without excluding quota-limited as last resort
-            if request.exclude_quota_limited:
+            if exclude_quota:
+                fallback_reason += " - trying quota-limited"
                 matches = self.catalog.find_matches(
                     required_caps=required_caps,
-                    cost_ceiling=cost_ceiling * 2,  # relax cost
+                    cost_ceiling=cost_ceiling * 2,
                     preferred_tags=preferred_tags,
                     min_context=min_context,
                     exclude_quota_limited=False,
+                    per_request_exclusions=exclusions,
                 )
             
             if not matches:
                 # Ultimate fallback: cheapest model with any capability
                 all_models = self.catalog.all_models()
                 if all_models:
+                    fallback_reason += " - fell back to cheapest available"
                     fallback = min(all_models, key=lambda m: m.cost_per_1k)
                     return self._build_result(
                         fallback, tier, confidence, signals, 0,
-                        "No matches found - fell back to cheapest available"
+                        fallback_reason, category
                     )
                 raise RuntimeError("No models available in catalog")
         
         # Step 5: Select best match
         selected = matches[0]
-        reason = self._build_reason(selected, len(matches), tier)
+        reason = self._build_reason(selected, len(matches), tier, fallback_reason)
         
-        return self._build_result(selected, tier, confidence, signals, len(matches), reason)
+        return self._build_result(selected, tier, confidence, signals, len(matches), reason, category)
+    
+    def _get_default_tier(self) -> TierType:
+        """Get default tier when classification is ambiguous."""
+        global_limits = self.policy.global_limits
+        return global_limits.get("default_tier_on_ambiguous", "MEDIUM")
     
     def _category_to_tier(self, category: str) -> TierType:
         """Map legacy category names to tiers."""
         mapping = {
             "heartbeat": "SIMPLE",
+            "primary_llm": "SIMPLE",
             "primary llm": "SIMPLE",
             "brain": "MEDIUM",
+            "writing_content": "MEDIUM",
             "writing content": "MEDIUM",
+            "web_search": "COMPLEX",
             "web search": "COMPLEX",
             "coding": "COMPLEX",
+            "image_understanding": "COMPLEX",
             "image understanding": "COMPLEX",
             "voice": "MEDIUM",
         }
         return mapping.get(category.lower(), "MEDIUM")
     
-    def _build_reason(self, model: ModelMatch, num_candidates: int, tier: str) -> str:
+    def _build_reason(self, model: ModelMatch, num_candidates: int, tier: str, fallback: Optional[str] = None) -> str:
         """Build human-readable selection reason."""
-        parts = [f"Tier={tier}"]
+        parts = []
+        if fallback:
+            parts.append(f"({fallback})")
+        parts.append(f"Tier={tier}")
+        if model.preferred_rank < 999:
+            parts.append(f"Preferred rank: #{model.preferred_rank + 1}")
         parts.append(f"Capabilities matched: {model.capability_score}")
         if model.tag_score > 0:
             parts.append(f"Preferred tags matched: {model.tag_score}")
@@ -786,6 +978,7 @@ class Router:
         signals: List[str],
         candidates: int,
         reason: str,
+        category: Optional[str],
     ) -> RoutingResult:
         """Construct final routing result."""
         return RoutingResult(
@@ -801,7 +994,17 @@ class Router:
             candidates_considered=candidates,
             quota_limited=model.quota_limited,
             reason=reason,
+            policy_applied=category,
         )
+    
+    def get_available_models(self) -> Dict[str, List[str]]:
+        """Get available models grouped by provider, respecting policy."""
+        by_provider: Dict[str, List[str]] = {}
+        for model in self.catalog.all_models():
+            if model.provider not in by_provider:
+                by_provider[model.provider] = []
+            by_provider[model.provider].append(model.full_id)
+        return by_provider
 
 
 # CLI helpers for testing
@@ -815,9 +1018,15 @@ def main():
     if len(sys.argv) == 2 and sys.argv[1] == "--list-models":
         router = Router()
         counts = router.catalog.count_models()
+        available = router.get_available_models()
         print(json.dumps({
             "total": sum(counts.values()),
             "by_provider": counts,
+            "available": available,
+            "disabled_by_policy": {
+                "models": list(router.policy.disabled_models),
+                "providers": list(router.policy.disabled_providers),
+            },
         }, indent=2))
         return
     
@@ -851,6 +1060,7 @@ def main():
         "signals": result.classification_signals,
         "reason": result.reason,
         "quota_limited": result.quota_limited,
+        "policy_applied": result.policy_applied,
     }, indent=2))
 
 

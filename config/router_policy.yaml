@@ -1,0 +1,188 @@
+# Router Policy Configuration
+# 
+# Controls which models are available for routing and task-specific restrictions.
+# This file is read at router initialization - restart to apply changes.
+#
+# Structure:
+# - disabled_models: List of model IDs to never use (e.g., "ollama/glm-4.6")
+# - disabled_providers: List of providers to disable entirely
+# - category_policies: Per-category/task restrictions
+# - global_limits: Default constraints applied when not overridden
+
+version: "1.0"
+last_updated: "2026-02-07"
+
+# ============================================================================
+# Globally Disabled Models
+# These models exist in the catalog but will never be selected
+# ============================================================================
+disabled_models:
+  # Examples (uncomment to disable):
+  # - ollama/glm-4.6          # Underperforms for your use case
+  # - ollama/glm-4.7          # Redundant with better alternatives
+  # - anthropic/claude-opus-4 # Too expensive ($75/M output)
+  # - openai/gpt-5.2-pro      # Way too expensive ($168/M output)
+  # - openai/o1               # Expensive reasoning ($60/M output)
+
+# ============================================================================
+# Globally Disabled Providers
+# All models from these providers are excluded
+# ============================================================================
+disabled_providers:
+  # Examples:
+  # - openai                  # Uncomment to completely exclude OpenAI
+
+# ============================================================================
+# Category/Task-Specific Policies
+# Maps legacy category names to routing constraints
+# ============================================================================
+category_policies:
+  # --------------------------------------------------------------------------
+  # Heartbeat - Minimal cost, simple queries
+  # --------------------------------------------------------------------------
+  Heartbeat:
+    description: "Simple health checks and minimal queries"
+    allowed_tiers: [SIMPLE]           # Never use COMPLEX/REASONING models
+    max_cost_per_1k: 0.001            # Under $1/M tokens
+    required_capabilities: [chat]     # Absolute minimum
+    preferred_models:                 # Try these first (in order)
+      - ollama/ministral-3
+      - ollama/gemini-3-flash-preview
+      - anthropic/claude-haiku-4-5
+    exclude_models: []                # Additional exclusions beyond global
+    exclude_quota_limited: true       # Never fallback to OpenAI
+
+  # --------------------------------------------------------------------------
+  # Primary LLM - General chat, cheap and fast
+  # --------------------------------------------------------------------------
+  Primary_LLM:
+    description: "General conversation, simple Q&A"
+    allowed_tiers: [SIMPLE, MEDIUM]   # Can use slightly smarter models
+    max_cost_per_1k: 0.003
+    required_capabilities: [chat]
+    exclude_models:
+      - anthropic/claude-opus-4       # Too expensive for simple chat
+      - anthropic/claude-opus-4-5
+    exclude_quota_limited: true
+
+  # --------------------------------------------------------------------------
+  # Brain - Balanced reasoning and chat
+  # --------------------------------------------------------------------------
+  Brain:
+    description: "General reasoning, analysis, explanations"
+    allowed_tiers: [MEDIUM, COMPLEX]  # Prefer balanced to powerful
+    max_cost_per_1k: 0.010
+    required_capabilities: [chat, reasoning]
+    preferred_models:
+      - ollama/kimi-k2.5
+      - ollama/deepseek-v3.1          # Has reasoning capability
+      - anthropic/claude-sonnet-4-5
+    exclude_models:
+      - ollama/ministral-3            # No reasoning
+      - ollama/deepseek-v3.2          # No reasoning
+    exclude_quota_limited: true
+
+  # --------------------------------------------------------------------------
+  # Coding - Software development tasks
+  # --------------------------------------------------------------------------
+  Coding:
+    description: "Code generation, debugging, architecture"
+    allowed_tiers: [MEDIUM, COMPLEX, REASONING]  # All tiers okay
+    max_cost_per_1k: 0.020            # Up to $20/M for good code
+    required_capabilities: [code]     # Must have code capability
+    preferred_tags: [code, agentic]   # Prefer agentic coding models
+    preferred_models:
+      - ollama/kimi-k2.5              # Best agentic + reasoning
+      - ollama/qwen3-coder-next       # Agentic coding
+      - ollama/devstral-2             # Software engineering agent
+      - anthropic/claude-sonnet-4-5   # Reliable fallback
+    exclude_models:
+      - ollama/ministral-3            # Weak coding
+      - anthropic/claude-haiku-4-5    # No code capability
+    exclude_quota_limited: true
+
+  # --------------------------------------------------------------------------
+  # Web Search - Research tasks
+  # --------------------------------------------------------------------------
+  Web_Search:
+    description: "Web research, data gathering"
+    allowed_tiers: [MEDIUM, COMPLEX]
+    max_cost_per_1k: 0.010            # Keep research cheap
+    required_capabilities: [chat, reasoning]
+    # Exclude expensive models even if they match capabilities
+    exclude_models:
+      - anthropic/claude-opus-4       # $75/M is too much for research
+      - anthropic/claude-opus-4-5     # $25/M still expensive
+      - openai/gpt-5.2-pro            # $168/M
+      - openai/o1                     # $60/M
+    exclude_quota_limited: true
+
+  # --------------------------------------------------------------------------
+  # Writing Content - Creative writing
+  # --------------------------------------------------------------------------
+  Writing_Content:
+    description: "Creative writing, editing, style"
+    allowed_tiers: [SIMPLE, MEDIUM, COMPLEX]
+    max_cost_per_1k: 0.005
+    required_capabilities: [chat]
+    preferred_models:
+      - ollama/kimi-k2.5              # Good general purpose
+      - ollama/deepseek-v3.2          # Cheap and capable
+      - anthropic/claude-sonnet-4-5
+    exclude_models: []
+    exclude_quota_limited: true
+
+  # --------------------------------------------------------------------------
+  # Image Understanding - Vision tasks
+  # --------------------------------------------------------------------------
+  Image_Understanding:
+    description: "Vision analysis, image descriptions"
+    allowed_tiers: [COMPLEX]          # Vision needs more compute
+    max_cost_per_1k: 0.010
+    required_capabilities: [vision]   # MUST have vision
+    preferred_models:                 # Specific ranking for vision
+      - ollama/kimi-k2.5              # Best vision + reasoning
+      - ollama/qwen3-vl               # Vision specialist
+      - ollama/gemini-3-pro-preview   # Excellent vision
+      - anthropic/claude-sonnet-4-5   # Reliable vision fallback
+    exclude_models:
+      - ollama/deepseek-v3.2          # No vision
+      - ollama/deepseek-v3.1          # No vision
+      - ollama/deepseek-r1            # No vision
+      - anthropic/claude-opus-4       # Too expensive
+    exclude_quota_limited: true
+
+  # --------------------------------------------------------------------------
+  # Voice - Audio/Transcription (not currently used)
+  # --------------------------------------------------------------------------
+  Voice:
+    description: "Voice tasks (currently unused)"
+    allowed_tiers: [MEDIUM]
+    max_cost_per_1k: 0.010
+    required_capabilities: [chat]
+    # No specific models - uses tier defaults
+    exclude_quota_limited: true
+
+# ============================================================================
+# Global Defaults (when no category matches or category doesn't specify)
+# ============================================================================
+global_limits:
+  max_cost_per_1k: 0.050              # Absolute ceiling: $50/M tokens
+  exclude_quota_limited: true         # Default: don't use OpenAI
+  
+  # When classifier can't decide (ambiguous), default to this tier
+  default_tier_on_ambiguous: MEDIUM
+  
+  # When no models match constraints, relax these in order:
+  fallback_relaxation:
+    - try_without_quota_exclusion     # Try OpenAI last resort
+    - try_next_tier_up                # If SIMPLE failed, try MEDIUM
+    - double_cost_ceiling             # 2x budget before failing
+
+# ============================================================================
+# Provider Priority (when multiple models match equally)
+# ============================================================================
+provider_priority:
+  - ollama          # Primary - always try first
+  - anthropic       # Secondary - reliable fallback
+  - openai          # Tertiary - only if quota allows

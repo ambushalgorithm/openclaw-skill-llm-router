@@ -1,0 +1,122 @@
+{
+  "version": "1.0",
+  "last_updated": "2026-02-07",
+  "disabled_models": [],
+  "disabled_providers": [],
+  "category_policies": {
+    "Heartbeat": {
+      "description": "Simple health checks and minimal queries",
+      "allowed_tiers": ["SIMPLE"],
+      "max_cost_per_1k": 0.001,
+      "required_capabilities": ["chat"],
+      "preferred_models": [
+        "ollama/ministral-3",
+        "ollama/gemini-3-flash-preview",
+        "anthropic/claude-haiku-4-5"
+      ],
+      "exclude_quota_limited": true
+    },
+    "Primary_LLM": {
+      "description": "General conversation, simple Q&A",
+      "allowed_tiers": ["SIMPLE", "MEDIUM"],
+      "max_cost_per_1k": 0.003,
+      "required_capabilities": ["chat"],
+      "exclude_models": [
+        "anthropic/claude-opus-4",
+        "anthropic/claude-opus-4-5"
+      ],
+      "exclude_quota_limited": true
+    },
+    "Brain": {
+      "description": "General reasoning, analysis, explanations",
+      "allowed_tiers": ["MEDIUM", "COMPLEX"],
+      "max_cost_per_1k": 0.01,
+      "required_capabilities": ["chat", "reasoning"],
+      "preferred_models": [
+        "ollama/kimi-k2.5",
+        "ollama/deepseek-v3.1",
+        "anthropic/claude-sonnet-4-5"
+      ],
+      "exclude_models": [
+        "ollama/ministral-3",
+        "ollama/deepseek-v3.2"
+      ],
+      "exclude_quota_limited": true
+    },
+    "Coding": {
+      "description": "Code generation, debugging, architecture",
+      "allowed_tiers": ["MEDIUM", "COMPLEX", "REASONING"],
+      "max_cost_per_1k": 0.02,
+      "required_capabilities": ["code"],
+      "preferred_tags": ["code", "agentic"],
+      "preferred_models": [
+        "ollama/kimi-k2.5",
+        "ollama/qwen3-coder-next",
+        "ollama/devstral-2",
+        "anthropic/claude-sonnet-4-5"
+      ],
+      "exclude_models": [
+        "ollama/ministral-3",
+        "anthropic/claude-haiku-4-5"
+      ],
+      "exclude_quota_limited": true
+    },
+    "Web_Search": {
+      "description": "Web research, data gathering",
+      "allowed_tiers": ["MEDIUM", "COMPLEX"],
+      "max_cost_per_1k": 0.01,
+      "required_capabilities": ["chat", "reasoning"],
+      "exclude_models": [
+        "anthropic/claude-opus-4",
+        "anthropic/claude-opus-4-5",
+        "openai/gpt-5.2-pro",
+        "openai/o1"
+      ],
+      "exclude_quota_limited": true
+    },
+    "Writing_Content": {
+      "description": "Creative writing, editing, style",
+      "allowed_tiers": ["SIMPLE", "MEDIUM", "COMPLEX"],
+      "max_cost_per_1k": 0.005,
+      "required_capabilities": ["chat"],
+      "preferred_models": [
+        "ollama/kimi-k2.5",
+        "ollama/deepseek-v3.2",
+        "anthropic/claude-sonnet-4-5"
+      ],
+      "exclude_quota_limited": true
+    },
+    "Image_Understanding": {
+      "description": "Vision analysis, image descriptions",
+      "allowed_tiers": ["COMPLEX"],
+      "max_cost_per_1k": 0.01,
+      "required_capabilities": ["vision"],
+      "preferred_models": [
+        "ollama/kimi-k2.5",
+        "ollama/qwen3-vl",
+        "ollama/gemini-3-pro-preview",
+        "anthropic/claude-sonnet-4-5"
+      ],
+      "exclude_models": [
+        "ollama/deepseek-v3.2",
+        "ollama/deepseek-v3.1",
+        "ollama/deepseek-r1",
+        "anthropic/claude-opus-4"
+      ],
+      "exclude_quota_limited": true
+    },
+    "Voice": {
+      "description": "Voice tasks (currently unused)",
+      "allowed_tiers": ["MEDIUM"],
+      "max_cost_per_1k": 0.01,
+      "required_capabilities": ["chat"],
+      "exclude_quota_limited": true
+    }
+  },
+  "global_limits": {
+    "max_cost_per_1k": 0.05,
+    "exclude_quota_limited": true,
+    "default_tier_on_ambiguous": "MEDIUM"
+  },
+  "provider_priority": ["ollama", "anthropic", "openai"]
+}
