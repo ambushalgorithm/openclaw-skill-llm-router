@@ -97,13 +97,37 @@ llm-router <command> [args]
 | Command | Description | Example |
 |---------|-------------|---------|
 | `dashboard` | Full overview: sync + ledger + log + status | `llm-router dashboard` |
-| `status` | Pretty budget table (default) | `llm-router status` |
+| `status` | Pretty budget table (combined view — default) | `llm-router status` |
+| `status --real` | Real costs only (Ollama shows \$0) | `llm-router status --real` |
+| `status --normalized` | Normalized rates for cost comparison | `llm-router status --normalized` |
 | `status-raw` | Raw JSON budget data | `llm-router status-raw \| jq` |
 | `log [N]` | Status snapshot history (default: 10) | `llm-router log 5` |
 | `ledger [N]` | Individual usage entries (default: 20) | `llm-router ledger 10` |
 | `sync` | Import OpenClaw transcripts | `llm-router sync \| jq` |
 | `cron` | Sequential import → snapshot (for cron) | `llm-router cron` |
 | `help` | Show help message | `llm-router help` |
+
+### View modes (cost tracking)
+
+The `status` command supports three view modes for cost tracking:
+
+**Combined view (default):**
+- Shows real cost (API charges), normalized cost (estimated), tokens, and budget %
+- Best for comprehensive overview
+- Uses normalized costs for budget percentage
+
+**Real mode (`--real`):**
+- Shows actual API costs only
+- Ollama shows $0 (subscription-based)
+- Use case: "What did I actually spend?"
+
+**Normalized mode (`--normalized`):**
+- Applies estimated rates to all providers uniformly
+- Ollama: $0.0001/$0.0002 per 1K tokens (market estimate)
+- OpenAI/Codex: Actual rates from provider pricing
+- Use case: "Should I use Ollama or Codex?"
+
+Rates are cached in `~/.llm-router-rates.json`. Update with `python3 -m src.pricing`.
 
 ### Convenience aliases
 
