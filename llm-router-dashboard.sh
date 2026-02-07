@@ -4,9 +4,12 @@
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-echo "╔══════════════════════════════════════════════════════════════════╗"
-echo "║           LLM ROUTER DASHBOARD - Daily Check                     ║"
-echo "╚══════════════════════════════════════════════════════════════════╝"
+# Separator matching widest content (ledger table = 92 chars)
+SEP="────────────────────────────────────────────────────────────────────────────────────────────"
+
+echo "╔═══════════════════════════════════════════════════════════════════════════════════════════╗"
+echo "║                    LLM ROUTER DASHBOARD - Daily Check                                     ║"
+echo "╚═══════════════════════════════════════════════════════════════════════════════════════════╝"
 echo ""
 
 # 1. Sync transcript usage
@@ -16,22 +19,22 @@ echo ""
 
 # 2. Ledger entries
 echo "▶ Recent ledger entries (last 10):"
-echo "───────────────────────────────────────────────────────────────────"
+echo "$SEP"
 "$ROOT_DIR/llm-router-status-ledger.sh" 10
 echo ""
 
 # 3. Status snapshots
 echo "▶ Status history (last 3 snapshots):"
-echo "───────────────────────────────────────────────────────────────────"
+echo "$SEP"
 "$ROOT_DIR/llm-router-status-log.sh" 3
 echo ""
 
 # 4. Current status table
 echo "▶ Current budget status:"
-echo "───────────────────────────────────────────────────────────────────"
+echo "$SEP"
 "$ROOT_DIR/llm-router-status.sh"
 echo ""
 
-echo "═══════════════════════════════════════════════════════════════════"
-echo "  Done. Run 'llm-router-dashboard' anytime for this full view."
-echo "═══════════════════════════════════════════════════════════════════"
+echo "═══════════════════════════════════════════════════════════════════════════════════════════"
+echo "           Done. Run 'llm-router-dashboard' anytime for this full view."
+echo "═══════════════════════════════════════════════════════════════════════════════════════════"
