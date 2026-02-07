@@ -1,0 +1,437 @@
+# Model Catalog v2.0
+# Unified model definitions with capabilities, cost, and availability
+#
+# Ported from ClawRouter inspiration + existing llm-router rates
+# Structure: provider -> models with full metadata
+
+_meta:
+  version: "2.0"
+  description: "Capability-aware model catalog for smart routing"
+  last_updated: "2026-02-07T03:20:00Z"
+  routing:
+    # Map classifier tiers to capability requirements
+    tier_profiles:
+      SIMPLE:
+        required_capabilities: [chat]
+        cost_ceiling_per_1k: 0.001
+        preferred_tags: [cheap, fast]
+        default_fallback: MEDIUM
+        
+      MEDIUM:
+        required_capabilities: [chat, code]
+        cost_ceiling_per_1k: 0.005
+        preferred_tags: [balanced]
+        default_fallback: COMPLEX
+        
+      COMPLEX:
+        required_capabilities: [reasoning, code]
+        cost_ceiling_per_1k: 0.020
+        preferred_tags: [powerful, reliable]
+        default_fallback: COMPLEX
+        
+      REASONING:
+        required_capabilities: [reasoning]
+        cost_ceiling_per_1k: 0.025
+        preferred_tags: [reasoning, powerful]
+        default_fallback: COMPLEX
+
+providers:
+  # ============================================================================
+  # OLLAMA CLOUD - Primary workhorse (subscription-based, generous limits)
+  # ============================================================================
+  ollama:
+    _meta:
+      base_url: "http://127.0.0.1:11434/v1"
+      api_type: "openai-completions"
+      auth_type: "none"
+      availability: "primary"  # Preferred when available
+      quota_note: "Ollama Cloud Pro - session/weekly limits apply"
+      
+    models:
+      kimi-k2.5:
+        name: "Kimi K2.5"
+        costs:
+          input_per_1k: 0.0005   # $0.50/M
+          output_per_1k: 0.0028  # $2.80/M
+          source: "together.ai"
+        capabilities:
+          chat: true
+          code: true
+          reasoning: true
+          vision: true
+          long_context: true
+          function_calling: true
+          json_mode: true
+          agentic: true          # Agent swarm capability
+        context_window: 262144   # 256K
+        max_output: 8192
+        reliability: 0.90
+        latency_tier: cloud
+        tags: [default, agentic, vision, reasoning]
+        
+      kimi-k2:
+        name: "Kimi K2"
+        costs:
+          input_per_1k: 0.001
+          output_per_1k: 0.003
+          source: "together.ai"
+        capabilities:
+          chat: true
+          code: true
+          reasoning: true
+          vision: false
+          long_context: false
+          function_calling: true
+          json_mode: true
+        context_window: 128000
+        max_output: 4096
+        reliability: 0.88
+        latency_tier: cloud
+        tags: [balanced, reasoning]
+        
+      kimi-k2-thinking:
+        name: "Kimi K2 Thinking"
+        costs:
+          input_per_1k: 0.0012
+          output_per_1k: 0.004
+          source: "together.ai"
+        capabilities:
+          chat: true
+          code: true
+          reasoning: true
+          vision: false
+          long_context: false
+          function_calling: false
+          json_mode: true
+        context_window: 128000
+        max_output: 4096
+        reliability: 0.87
+        latency_tier: cloud
+        tags: [reasoning, thinking]
+        
+      deepseek-v3.2:
+        name: "DeepSeek V3.2"
+        costs:
+          input_per_1k: 0.00028   # $0.28/M - cheapest capable
+          output_per_1k: 0.00042  # $0.42/M
+          source: "deepseek.com"
+        capabilities:
+          chat: true
+          code: true
+          reasoning: false
+          vision: false
+          long_context: false
+          function_calling: true
+          json_mode: true
+        context_window: 128000
+        max_output: 8192
+        reliability: 0.85
+        latency_tier: fast
+        tags: [cheap, fast, code]
+        
+      deepseek-v3.1:
+        name: "DeepSeek V3.1"
+        costs:
+          input_per_1k: 0.0006
+          output_per_1k: 0.0017
+          source: "together.ai"
+        capabilities:
+          chat: true
+          code: true
+          reasoning: false
+          vision: false
+          long_context: false
+          function_calling: true
+          json_mode: true
+        context_window: 128000
+        max_output: 8192
+        reliability: 0.85
+        latency_tier: fast
+        tags: [cheap, code]
+        
+      deepseek-r1:
+        name: "DeepSeek R1 (Reasoning)"
+        costs:
+          input_per_1k: 0.003     # $3/M
+          output_per_1k: 0.007    # $7/M
+          source: "together.ai"
+        capabilities:
+          chat: true
+          code: true
+          reasoning: true
+          vision: false
+          long_context: false
+          function_calling: false
+          json_mode: true
+        context_window: 128000
+        max_output: 8192
+        reliability: 0.85
+        latency_tier: standard
+        tags: [reasoning, thinking, expensive]
+        
+      qwen3-coder:
+        name: "Qwen3 Coder"
+        costs:
+          input_per_1k: 0.0005
+          output_per_1k: 0.0012
+          source: "together.ai"
+        capabilities:
+          chat: true
+          code: true
+          reasoning: false
+          vision: false
+          long_context: false
+          function_calling: true
+          json_mode: true
+        context_window: 128000
+        max_output: 4096
+        reliability: 0.87
+        latency_tier: fast
+        tags: [code, cheap]
+        
+      qwen3-vl:
+        name: "Qwen3 VL (Vision)"
+        costs:
+          input_per_1k: 0.0005
+          output_per_1k: 0.0015
+          source: "together.ai"
+        capabilities:
+          chat: true
+          code: true
+          reasoning: false
+          vision: true
+          long_context: false
+          function_calling: true
+          json_mode: true
+        context_window: 128000
+        max_output: 4096
+        reliability: 0.86
+        latency_tier: cloud
+        tags: [vision, code]
+        
+      gemini-3-pro-preview:
+        name: "Gemini 3 Pro Preview"
+        costs:
+          input_per_1k: 0.00125   # $1.25/M
+          output_per_1k: 0.005    # $5/M
+          source: "estimate"
+        capabilities:
+          chat: true
+          code: true
+          reasoning: true
+          vision: true
+          long_context: true
+          function_calling: true
+          json_mode: true
+        context_window: 1050000   # 1M+ context
+        max_output: 65536
+        reliability: 0.90
+        latency_tier: cloud
+        tags: [long_context, vision, reasoning]
+        
+      gemini-3-flash-preview:
+        name: "Gemini 3 Flash Preview"
+        costs:
+          input_per_1k: 0.00015   # $0.15/M - cheapest
+          output_per_1k: 0.0006   # $0.60/M
+          source: "estimate"
+        capabilities:
+          chat: true
+          code: true
+          reasoning: false
+          vision: true
+          long_context: true
+          function_calling: true
+          json_mode: true
+        context_window: 1000000
+        max_output: 65536
+        reliability: 0.85
+        latency_tier: fast
+        tags: [cheap, fast, long_context, vision]
+
+  # ============================================================================
+  # ANTHROPIC - Secondary fallback (reliable, API key required)
+  # ============================================================================
+  anthropic:
+    _meta:
+      base_url: "https://api.anthropic.com"
+      api_type: "anthropic-messages"
+      auth_type: "api_key"
+      availability: "secondary"  # Used when Ollama unavailable or over budget
+      
+    models:
+      claude-sonnet-4-5:
+        name: "Claude Sonnet 4.5"
+        costs:
+          input_per_1k: 0.003     # $3/M
+          output_per_1k: 0.015    # $15/M
+          source: "manual"
+        capabilities:
+          chat: true
+          code: true
+          reasoning: true
+          vision: true
+          long_context: true
+          function_calling: true
+          json_mode: true
+        context_window: 200000
+        max_output: 64000
+        reliability: 0.95
+        latency_tier: fast
+        tags: [default, reliable, balanced]
+        
+      claude-opus-4:
+        name: "Claude Opus 4"
+        costs:
+          input_per_1k: 0.015     # $15/M
+          output_per_1k: 0.075    # $75/M
+          source: "manual"
+        capabilities:
+          chat: true
+          code: true
+          reasoning: true
+          vision: true
+          long_context: true
+          function_calling: true
+          json_mode: true
+        context_window: 200000
+        max_output: 32000
+        reliability: 0.95
+        latency_tier: standard
+        tags: [powerful, expensive, reliable]
+        
+      claude-opus-4-5:
+        name: "Claude Opus 4.5"
+        costs:
+          input_per_1k: 0.005     # $5/M
+          output_per_1k: 0.025    # $25/M
+          source: "manual"
+        capabilities:
+          chat: true
+          code: true
+          reasoning: true
+          vision: true
+          long_context: true
+          function_calling: true
+          json_mode: true
+        context_window: 200000
+        max_output: 32000
+        reliability: 0.94
+        latency_tier: standard
+        tags: [powerful, reasoning]
+        
+      claude-haiku-3-5:
+        name: "Claude Haiku 3.5"
+        costs:
+          input_per_1k: 0.0008    # $0.80/M
+          output_per_1k: 0.004    # $4/M
+          source: "manual"
+        capabilities:
+          chat: true
+          code: false
+          reasoning: false
+          vision: false
+          long_context: false
+          function_calling: true
+          json_mode: true
+        context_window: 200000
+        max_output: 4096
+        reliability: 0.90
+        latency_tier: fastest
+        tags: [cheap, fast, simple]
+
+  # ============================================================================
+  # OPENAI - Quota limited (ChatGPT subscription limits hit)
+  # ============================================================================
+  openai:
+    _meta:
+      base_url: "https://api.openai.com/v1"
+      api_type: "openai-chat"
+      auth_type: "api_key"
+      availability: "quota_limited"  # Available but deprioritized
+      quota_note: "ChatGPT subscription limits currently exceeded"
+      
+    models:
+      gpt-5.2:
+        name: "GPT-5.2"
+        costs:
+          input_per_1k: 0.005     # $5/M
+          output_per_1k: 0.015    # $15/M
+          source: "manual"
+        capabilities:
+          chat: true
+          code: true
+          reasoning: true
+          vision: true
+          long_context: true
+          function_calling: true
+          json_mode: true
+        context_window: 400000
+        max_output: 128000
+        reliability: 0.95
+        latency_tier: fast
+        tags: [default, powerful]
+        quota_limited: true
+        
+      gpt-5.2-pro:
+        name: "GPT-5.2 Pro"
+        costs:
+          input_per_1k: 0.021     # $21/M
+          output_per_1k: 0.168    # $168/M
+          source: "manual"
+        capabilities:
+          chat: true
+          code: true
+          reasoning: true
+          vision: false
+          long_context: true
+          function_calling: true
+          json_mode: true
+        context_window: 400000
+        max_output: 128000
+        reliability: 0.94
+        latency_tier: standard
+        tags: [powerful, expensive]
+        quota_limited: true
+        
+      o3-mini:
+        name: "o3-mini"
+        costs:
+          input_per_1k: 0.0011    # $1.10/M
+          output_per_1k: 0.0044   # $4.40/M
+          source: "manual"
+        capabilities:
+          chat: true
+          code: true
+          reasoning: true
+          vision: false
+          long_context: false
+          function_calling: false
+          json_mode: true
+        context_window: 128000
+        max_output: 65536
+        reliability: 0.92
+        latency_tier: standard
+        tags: [reasoning, cheap]
+        quota_limited: true
+        
+      gpt-4o-mini:
+        name: "GPT-4o Mini"
+        costs:
+          input_per_1k: 0.00015   # $0.15/M
+          output_per_1k: 0.0006   # $0.60/M
+          source: "manual"
+        capabilities:
+          chat: true
+          code: true
+          reasoning: false
+          vision: true
+          long_context: false
+          function_calling: true
+          json_mode: true
+        context_window: 128000
+        max_output: 16384
+        reliability: 0.88
+        latency_tier: fastest
+        tags: [cheap, fast, vision]
+        quota_limited: true
