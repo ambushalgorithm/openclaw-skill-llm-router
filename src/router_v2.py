@@ -149,7 +149,7 @@ DEFAULT_MODEL_CATALOG = {
                     "context_window": 128000,
                     "max_output": 4096,
                     "reliability": 0.88,
-                    "tags": ["balanced", "reasoning", "moe"],
+                    "tags": ["balanced", "reasoning", "moe", "cloud"],
                 },
                 "kimi-k2-thinking": {
                     "name": "Kimi K2 Thinking",
@@ -158,7 +158,7 @@ DEFAULT_MODEL_CATALOG = {
                     "context_window": 128000,
                     "max_output": 4096,
                     "reliability": 0.87,
-                    "tags": ["reasoning", "thinking", "moe"],
+                    "tags": ["reasoning", "thinking", "moe", "cloud"],
                 },
                 
                 # DeepSeek Family
@@ -169,7 +169,7 @@ DEFAULT_MODEL_CATALOG = {
                     "context_window": 128000,
                     "max_output": 8192,
                     "reliability": 0.85,
-                    "tags": ["cheap", "fast", "code", "efficient"],
+                    "tags": ["cheap", "fast", "code", "efficient", "cloud"],
                 },
                 "deepseek-v3.1": {
                     "name": "DeepSeek V3.1 Terminus",
@@ -178,7 +178,7 @@ DEFAULT_MODEL_CATALOG = {
                     "context_window": 128000,
                     "max_output": 8192,
                     "reliability": 0.85,
-                    "tags": ["cheap", "code", "thinking", "hybrid"],
+                    "tags": ["cheap", "code", "thinking", "hybrid", "cloud"],
                 },
                 "deepseek-r1": {
                     "name": "DeepSeek R1",
@@ -187,7 +187,7 @@ DEFAULT_MODEL_CATALOG = {
                     "context_window": 128000,
                     "max_output": 8192,
                     "reliability": 0.86,
-                    "tags": ["reasoning", "thinking", "expensive"],
+                    "tags": ["reasoning", "thinking", "expensive", "cloud"],
                 },
                 
                 # Qwen Family (Alibaba)
@@ -198,7 +198,7 @@ DEFAULT_MODEL_CATALOG = {
                     "context_window": 128000,
                     "max_output": 4096,
                     "reliability": 0.87,
-                    "tags": ["code", "cheap"],
+                    "tags": ["code", "cheap", "cloud"],
                 },
                 "qwen3-coder-next": {
                     "name": "Qwen3 Coder Next",
@@ -207,7 +207,7 @@ DEFAULT_MODEL_CATALOG = {
                     "context_window": 128000,
                     "max_output": 4096,
                     "reliability": 0.87,
-                    "tags": ["code", "agentic", "cheap"],
+                    "tags": ["code", "agentic", "cheap", "cloud"],
                 },
                 "qwen3-vl": {
                     "name": "Qwen3 VL",
@@ -216,7 +216,7 @@ DEFAULT_MODEL_CATALOG = {
                     "context_window": 128000,
                     "max_output": 4096,
                     "reliability": 0.86,
-                    "tags": ["vision", "code", "multimodal"],
+                    "tags": ["vision", "code", "multimodal", "cloud"],
                 },
                 "qwen3-next": {
                     "name": "Qwen3 Next",
@@ -225,7 +225,7 @@ DEFAULT_MODEL_CATALOG = {
                     "context_window": 128000,
                     "max_output": 4096,
                     "reliability": 0.88,
-                    "tags": ["balanced", "efficient"],
+                    "tags": ["balanced", "efficient", "cloud"],
                 },
                 
                 # Google Gemini Family
@@ -236,7 +236,7 @@ DEFAULT_MODEL_CATALOG = {
                     "context_window": 1050000,
                     "max_output": 65536,
                     "reliability": 0.90,
-                    "tags": ["long_context", "vision", "reasoning", "powerful"],
+                    "tags": ["long_context", "vision", "reasoning", "powerful", "cloud"],
                 },
                 "gemini-3-flash-preview": {
                     "name": "Gemini 3 Flash Preview",
@@ -245,7 +245,7 @@ DEFAULT_MODEL_CATALOG = {
                     "context_window": 1000000,
                     "max_output": 65536,
                     "reliability": 0.85,
-                    "tags": ["cheap", "fast", "long_context", "vision"],
+                    "tags": ["cheap", "fast", "long_context", "vision", "cloud"],
                 },
                 
                 # GLM Family (Zhipu AI)
@@ -256,7 +256,7 @@ DEFAULT_MODEL_CATALOG = {
                     "context_window": 128000,
                     "max_output": 4096,
                     "reliability": 0.86,
-                    "tags": ["code", "balanced"],
+                    "tags": ["code", "balanced", "cloud"],
                 },
                 "glm-4.6": {
                     "name": "GLM 4.6",
@@ -265,7 +265,7 @@ DEFAULT_MODEL_CATALOG = {
                     "context_window": 128000,
                     "max_output": 4096,
                     "reliability": 0.85,
-                    "tags": ["cheap", "agentic"],
+                    "tags": ["cheap", "agentic", "cloud"],
                 },
                 
                 # Mistral / Ministral Family
@@ -276,7 +276,7 @@ DEFAULT_MODEL_CATALOG = {
                     "context_window": 128000,
                     "max_output": 4096,
                     "reliability": 0.85,
-                    "tags": ["cheap", "fast", "vision", "edge"],
+                    "tags": ["cheap", "fast", "vision", "edge", "cloud"],
                 },
                 
                 # MiniMax Family
@@ -287,7 +287,7 @@ DEFAULT_MODEL_CATALOG = {
                     "context_window": 128000,
                     "max_output": 4096,
                     "reliability": 0.85,
-                    "tags": ["code", "efficient"],
+                    "tags": ["code", "efficient", "cloud"],
                 },
                 "minimax-m2.1": {
                     "name": "MiniMax M2.1",
@@ -296,7 +296,7 @@ DEFAULT_MODEL_CATALOG = {
                     "context_window": 256000,
                     "max_output": 4096,
                     "reliability": 0.86,
-                    "tags": ["code", "multilingual"],
+                    "tags": ["code", "multilingual", "cloud"],
                 },
                 
                 # Devstral Family (Mistral for coding)
@@ -307,7 +307,7 @@ DEFAULT_MODEL_CATALOG = {
                     "context_window": 128000,
                     "max_output": 4096,
                     "reliability": 0.87,
-                    "tags": ["code", "agentic", "vision"],
+                    "tags": ["code", "agentic", "vision", "cloud"],
                 },
                 "devstral-2": {
                     "name": "Devstral 2",
@@ -316,7 +316,7 @@ DEFAULT_MODEL_CATALOG = {
                     "context_window": 128000,
                     "max_output": 4096,
                     "reliability": 0.88,
-                    "tags": ["code", "agentic", "powerful"],
+                    "tags": ["code", "agentic", "powerful", "cloud"],
                 },
                 
                 # Specialized Models
@@ -327,7 +327,7 @@ DEFAULT_MODEL_CATALOG = {
                     "context_window": 128000,
                     "max_output": 4096,
                     "reliability": 0.85,
-                    "tags": ["cheap", "balanced", "mit_license"],
+                    "tags": ["cheap", "balanced", "mit_license", "cloud"],
                 },
                 "rnj-1": {
                     "name": "Rnj-1",
@@ -336,7 +336,7 @@ DEFAULT_MODEL_CATALOG = {
                     "context_window": 128000,
                     "max_output": 4096,
                     "reliability": 0.86,
-                    "tags": ["code", "stem", "efficient"],
+                    "tags": ["code", "stem", "efficient", "cloud"],
                 },
                 "nemotron-3-nano": {
                     "name": "Nemotron 3 Nano",
@@ -345,7 +345,7 @@ DEFAULT_MODEL_CATALOG = {
                     "context_window": 128000,
                     "max_output": 4096,
                     "reliability": 0.87,
-                    "tags": ["agentic", "efficient"],
+                    "tags": ["agentic", "efficient", "cloud"],
                 },
             },
         },
@@ -663,7 +663,13 @@ class RouterPolicy:
             "exclude_quota_limited": True,
             "default_tier_on_ambiguous": "MEDIUM",
             "cost_optimized": False,
+            "cloud_only": False,
         })
+
+    @property
+    def cloud_only(self) -> bool:
+        """Filter to only cloud-available Ollama models."""
+        return self._data.get("cloud_only", False)
     
     def is_cost_optimized_default(self, category: Optional[str] = None) -> bool:
         """Get default cost_optimized setting for a category (or global if no category)."""
@@ -689,6 +695,7 @@ class ModelCatalog:
         """Build flat model lookup from catalog data, applying policy filters."""
         disabled_models = self.policy.disabled_models
         disabled_providers = self.policy.disabled_providers
+        cloud_only = self.policy.cloud_only
         
         for provider, pdata in self._data.get("providers", {}).items():
             if provider.startswith("_"):
@@ -706,6 +713,11 @@ class ModelCatalog:
                 
                 # Skip globally disabled models
                 if full_id in disabled_models:
+                    continue
+                
+                # Filter to cloud-only models when enabled
+                tags = set(mdata.get("tags", []))
+                if cloud_only and "cloud" not in tags:
                     continue
                 
                 costs = mdata.get("costs", {})
@@ -727,7 +739,7 @@ class ModelCatalog:
                     capabilities=caps_set,
                     context_window=mdata.get("context_window", 128000),
                     reliability=mdata.get("reliability", 0.8),
-                    tags=set(mdata.get("tags", [])),
+                    tags=tags,
                     quota_limited=mdata.get("quota_limited", False) or is_quota_limited,
                     capability_score=0,
                     tag_score=0,

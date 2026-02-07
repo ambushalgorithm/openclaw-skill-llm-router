@@ -1,5 +1,5 @@
 # Router Policy Configuration
-# 
+#
 # Controls which models are available for routing and task-specific restrictions.
 # This file is read at router initialization - restart to apply changes.
 #
@@ -175,15 +175,20 @@ category_policies:
 global_limits:
   max_cost_per_1k: 0.050              # Absolute ceiling: $50/M tokens
   exclude_quota_limited: true         # Default: don't use OpenAI
-  
+
   # When classifier can't decide (ambiguous), default to this tier
   default_tier_on_ambiguous: MEDIUM
-  
+
   # Cost optimization: Prefer cheaper models for MEDIUM/SIMPLE tiers
   # When true: MiniMax/DeepSeek prioritized over Kimi for lower tiers
   # When false: Kimi prioritized (best quality regardless of cost)
   cost_optimized: true                # Enabled: prefer MiniMax/DeepSeek when appropriate
-  
+
+  # Cloud-only mode: Only use Ollama Cloud tagged models
+  # When true: Excludes any models not explicitly marked "cloud" in the catalog
+  # Ensures you're only routing to Ollama Cloud Pro available models
+  cloud_only: true                    # Filter to Ollama Cloud models only
+
   # When no models match constraints, relax these in order:
   fallback_relaxation:
     - try_without_quota_exclusion     # Try OpenAI last resort
