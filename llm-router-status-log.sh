@@ -1,29 +1,28 @@
-#!/usr/bin/env bash
-# llm-router-status-log: View recent ledger entries with pretty formatting
-# Usage: llm-router-status-log [N]  (default: last 20 entries)
+#!/bin/bash
+# llm-router-status-log: Show status snapshots over time with formatted headers
+# Usage: llm-router-status-log [N]  (default: last 10 snapshots)
 
-LEDGER_FILE="${LLM_ROUTER_LEDGER_PATH:-$HOME/.llm-router-ledger.jsonl}"
-NUM_ENTRIES="${1:-20}"
+LOG_FILE="${LLM_ROUTER_STATUS_LOG:-$HOME/.llm-router-status.log}"
+NUM_SNAPSHOTS="${1:-10}"
 
-if [ ! -f "$LEDGER_FILE" ]; then
-    echo "No ledger found at $LEDGER_FILE"
-    exit 1
+# If log doesn't exist, create initial snapshot
+if [ ! -f "$LOG_FILE" ] || [ ! -s "$LOG_FILE" ]; then
+    mkdir -p "$(dirname "$LOG_FILE")"
+    echo "Initializing status log..." >&2
+    
+    # Import and capture current status
+    cd ~/Projects/openclaw-skill-llm-router
+    python3 -m src.main --import-openclaw-usage </dev/null >/dev/null 2>&1
+    
+    echo "==== $(date -u +%Y-%m-%dT%H:%M:%SZ) ====" > "$LOG_FILE"
+    ./llm-router-status.sh >> "$LOG_FILE" 2>/dev/null
+    echo "" >> "$LOG_FILE"
 fi
 
-# Show last N entries with pretty formatting
-tail -n "$NUM_ENTRIES" "$LEDGER_FILE" | while read -r line; do
-    echo "$line" | jq -r '[.ts_ms, .category, .provider, .model, .cost_usd, .is_estimate] | @tsv' 2>/dev/null || echo "$line"
-done | awk -F'\t' 'BEGIN { 
-    printf "%-20s %-12s %-12s %-25s %-10s %s\n", "Timestamp", "Category", "Provider", "Model", "Cost(USD)", "Estimate"
-    printf "%s\n", "────────────────────────────────────────────────────────────────────────────────────────────"
-}
-{
-    ts=$1; category=$2; provider=$3; model=$4; cost=$5; is_est=$6
-    if (is_est == "true") est="✓"; else est=""
-    printf "%-20s %-12s %-12s %-25s %-10s %s\n", ts, category, provider, model, cost, est
-}'
-
-# Show total
-TOTAL=$(tail -n "$NUM_ENTRIES" "$LEDGER_FILE" | jq -s 'map(.cost_usd) | add' 2>/dev/null)
-echo ""
-echo "Total cost (last $NUM_ENTRIES entries): \$${TOTAL:-0}"
+# Each snapshot is: header line + 8 category lines + blank = ~10 lines
+# Show requested number of snapshots (approximate by line count)
+awk -v n="$NUM_SNAPSHOTS" '
+/^====/ { current++ }
+current > n { exit }
+{ print }
+' "$LOG_FILE" | tail -n $((NUM_SNAPSHOTS * 12))

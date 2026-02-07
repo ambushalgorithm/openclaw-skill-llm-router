@@ -93,8 +93,18 @@ alias llm-router-status='$HOME/Projects/openclaw-skill-llm-router/llm-router-sta
 # Raw status JSON (limits/used/remaining by category) with jq formatting
 alias llm-router-status-raw='(cd ~/Projects/openclaw-skill-llm-router && python3 -m src.main --status | jq)'
 
-# Pretty ledger log: Recent entries with timestamp, category, provider, cost
+# Status snapshots over time (full budget table per timestamp)
+# Shows: ==== 2026-02-07T00:10:00Z ==== followed by full status table
+# Usage: llm-router-status-log [N]  (default: last 10 snapshots)
 alias llm-router-status-log='$HOME/Projects/openclaw-skill-llm-router/llm-router-status-log.sh'
+
+# Individual ledger entries (granular usage events)
+# Shows: timestamp, category, provider, model, cost, estimate flag
+# Usage: llm-router-status-ledger [N]  (default: last 20 entries)
+alias llm-router-status-ledger='$HOME/Projects/openclaw-skill-llm-router/llm-router-status-ledger.sh'
+
+# Legacy alias for raw ledger tail
+alias llm-router-ledger='(tail -n 5 ~/.llm-router-ledger.jsonl | jq)'
 ```
 
 ### Direct usage (no aliases)
