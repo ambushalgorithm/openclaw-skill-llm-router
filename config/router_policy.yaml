@@ -16,7 +16,7 @@ last_updated: "2026-02-07"
 # Globally Disabled Models
 # These models exist in the catalog but will never be selected
 # ============================================================================
-disabled_models:
+disabled_models: []
   # Examples (uncomment to disable):
   # - ollama/glm-4.6          # Underperforms for your use case
   # - ollama/glm-4.7          # Redundant with better alternatives
@@ -28,7 +28,7 @@ disabled_models:
 # Globally Disabled Providers
 # All models from these providers are excluded
 # ============================================================================
-disabled_providers:
+disabled_providers: []
   # Examples:
   # - openai                  # Uncomment to completely exclude OpenAI
 
