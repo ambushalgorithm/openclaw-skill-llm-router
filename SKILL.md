@@ -77,46 +77,42 @@ This skill is **path-agnostic**. All integration details are provided via enviro
 
 ## CLI helpers (recommended)
 
-This repo includes a small status helper script you can run from anywhere.
+This repo includes a unified CLI entry point (`llm-router`) with subcommands for all operations.
 
-### Aliases
-
-Add these to your shell config (`~/.bashrc`, `~/.zshrc`, etc.):
+### Quick setup
 
 ```bash
-# Raw usage counters (USD by mode/category)
-alias llm-router-usage='cat ~/.llm-router-usage.json | jq'
-
-# Pretty table: Category, $ Used, $ Limit, $ Remaining, %
-alias llm-router-status='$HOME/Projects/openclaw-skill-llm-router/llm-router-status.sh'
-
-# Raw status JSON (limits/used/remaining by category) with jq formatting
-alias llm-router-status-raw='(cd ~/Projects/openclaw-skill-llm-router && python3 -m src.main --status | jq)'
-
-# Status snapshots over time (full budget table per timestamp)
-# Shows: ==== 2026-02-07T00:10:00Z ==== followed by full status table
-# Usage: llm-router-status-log [N]  (default: last 10 snapshots)
-alias llm-router-status-log='$HOME/Projects/openclaw-skill-llm-router/llm-router-status-log.sh'
-
-# Individual ledger entries (granular usage events)
-# Shows: timestamp, category, provider, model, cost, estimate flag
-# Usage: llm-router-status-ledger [N]  (default: last 20 entries)
-alias llm-router-status-ledger='$HOME/Projects/openclaw-skill-llm-router/llm-router-status-ledger.sh'
-
-# Legacy alias for raw ledger tail
-alias llm-router-ledger='(tail -n 5 ~/.llm-router-ledger.jsonl | jq)'
-
-# Comprehensive dashboard: sync + ledger + history + current status
-# Perfect for daily check / debugging / habit
-alias llm-router-dashboard='$HOME/Projects/openclaw-skill-llm-router/llm-router-dashboard.sh'
+# Add to ~/.bashrc or ~/.zshrc
+alias llm-router='$HOME/Projects/openclaw-skill-llm-router/llm-router'
 ```
 
-### Direct usage (no aliases)
+### Usage
 
 ```bash
-cd ~/Projects/openclaw-skill-llm-router
-./llm-router-status.sh        # table
-./llm-router-status.sh --raw  # raw JSON
+llm-router <command> [args]
+```
+
+### Commands
+
+| Command | Description | Example |
+|---------|-------------|---------|
+| `dashboard` | Full overview: sync + ledger + log + status | `llm-router dashboard` |
+| `status` | Pretty budget table (default) | `llm-router status` |
+| `status-raw` | Raw JSON budget data | `llm-router status-raw \| jq` |
+| `log [N]` | Status snapshot history (default: 10) | `llm-router log 5` |
+| `ledger [N]` | Individual usage entries (default: 20) | `llm-router ledger 10` |
+| `sync` | Import OpenClaw transcripts | `llm-router sync \| jq` |
+| `cron` | Sequential import → snapshot (for cron) | `llm-router cron` |
+| `help` | Show help message | `llm-router help` |
+
+### Convenience aliases
+
+```bash
+# Full dashboard (recommended for daily checks)
+alias llm-router-dashboard='llm-router dashboard'
+
+# Raw usage JSON (from router's usage file)
+alias llm-router-usage='cat ~/.llm-router-usage.json | jq'
 ```
 
 ### Log usage events (unified tracking)

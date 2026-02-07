@@ -1,0 +1,249 @@
+#!/usr/bin/env bash
+# llm-router — Unified CLI for LLM Router status, tracking, and management
+# Usage: llm-router <command> [args]
+#
+# Commands:
+#   dashboard          Full status overview (sync + ledger + log + status)
+#   status             Pretty budget table (default)
+#   status-raw         Raw JSON budget data
+#   log [N]            Status snapshot history (default: 10)
+#   ledger [N]         Individual usage entries (default: 20)
+#   sync               Import OpenClaw transcripts
+#   cron               Sequential import → snapshot (for cron jobs)
+#   version            Show version info
+#   help               This help message
+
+set -euo pipefail
+
+VERSION="0.2.0"
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+LEDGER_FILE="${LLM_ROUTER_LEDGER_PATH:-$HOME/.llm-router-ledger.jsonl}"
+STATUS_LOG="${LLM_ROUTER_STATUS_LOG:-$HOME/.llm-router-status.log}"
+
+# Colors (disable if not tty)
+if [ -t 1 ]; then
+    BOLD='\033[1m'
+    DIM='\033[2m'
+    RESET='\033[0m'
+else
+    BOLD='' DIM='' RESET=''
+fi
+
+# Header separator width (matches ledger table)
+SEP="────────────────────────────────────────────────────────────────────────────────────────────"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# COMMANDS
+# ─────────────────────────────────────────────────────────────────────────────
+
+cmd_help() {
+    cat << EOF
+${BOLD}llm-router${RESET} $VERSION — LLM Router status, tracking, and management
+
+${BOLD}USAGE:${RESET}
+    llm-router <command> [args]
+
+${BOLD}COMMANDS:${RESET}
+    dashboard              Full status overview (sync + ledger + log + status)
+    status                 Pretty budget table (default)
+    status-raw             Raw JSON budget data
+    log [N]                Status snapshot history (default: 10 snapshots)
+    ledger [N]             Individual usage entries (default: 20 entries)
+    sync                   Import OpenClaw transcripts into ledger
+    cron                   Sequential import → snapshot (for cron jobs)
+    help | --help | -h     Show this help message
+    version | --version    Show version info
+
+${BOLD}ALIASES:${RESET}
+    llm-router-status      → llm-router status
+    llm-router-usage       → cat ~/.llm-router-usage.json | jq
+
+${BOLD}ENVIRONMENT:${RESET}
+    LLM_ROUTER_LEDGER_PATH      Default: ~/.llm-router-ledger.jsonl
+    LLM_ROUTER_STATUS_LOG       Default: ~/.llm-router-status.log
+
+${BOLD}EXAMPLES:${RESET}
+    llm-router dashboard           Daily check (comprehensive)
+    llm-router log 5               Last 5 status snapshots
+    llm-router ledger 10           Last 10 usage entries
+    llm-router sync | jq           Sync with JSON output
+EOF
+}
+
+cmd_version() {
+    echo "llm-router version $VERSION"
+}
+
+cmd_sync() {
+    cd "$ROOT_DIR"
+    echo '{"max_files":200}' | python3 -m src.main --import-openclaw-usage --stdin 2>&1 | jq
+}
+
+cmd_status() {
+    cd "$ROOT_DIR"
+    python3 -m src.main --status 2>/dev/null | jq -r '
+        .modes.OpenClaw
+        | to_entries
+        | map(select(.value.limit_usd > 0))
+        | sort_by(.key)
+        | .[]
+        | [.key, .value.used_usd, .value.limit_usd, (.value.limit_usd - .value.used_usd), (100 * (.value.used_usd / .value.limit_usd))]
+        | @tsv
+    ' 2>/dev/null | awk -F'\t' 'BEGIN {
+        printf "%-22s %-12s %-12s %-14s %s\n", "Category", "$ Used", "$ Limit", "$ Remaining", "%"
+    }
+    {
+        used=$2+0; limit=$3+0; rem=$4+0; pct=$5+0;
+        printf "%-22s \$%-11.3f \$%-11.3f \$%-13.3f %.3f%%\n", $1, used, limit, rem, pct
+    }'
+}
+
+cmd_status_raw() {
+    cd "$ROOT_DIR"
+    python3 -m src.main --status 2>/dev/null | jq
+}
+
+cmd_log() {
+    local num="${1:-10}"
+    
+    if [ ! -f "$STATUS_LOG" ]; then
+        echo "No status log found at $STATUS_LOG" >&2
+        echo "Run: llm-router cron (or wait for cron to populate)" >&2
+        exit 1
+    fi
+    
+    # Count total snapshots and show last N
+    local total=$(grep -c '^====' "$STATUS_LOG" 2>/dev/null || echo 0)
+    local start=$((total - num + 1))
+    [ "$start" -lt 1 ] && start=1
+    
+    local current=0
+    while IFS= read -r line; do
+        [[ "$line" =~ ^==== ]] && ((current++))
+        [ "$current" -ge "$start" ] && echo "$line"
+    done < "$STATUS_LOG"
+}
+
+cmd_ledger() {
+    local num="${1:-20}"
+    
+    if [ ! -f "$LEDGER_FILE" ]; then
+        echo "No ledger found at $LEDGER_FILE"
+        exit 1
+    fi
+    
+    printf "%-20s %-12s %-12s %-25s %-10s %s\n" "Timestamp" "Category" "Provider" "Model" "Cost(USD)" "Estimate"
+    printf "%s\n" "$SEP"
+    
+    local total=0
+    tail -n "$num" "$LEDGER_FILE" | while read -r line; do
+        local parsed=$(echo "$line" | jq -r '[.ts_ms, .category, .provider, .model, .cost_usd, .is_estimate] | @tsv' 2>/dev/null)
+        if [ -n "$parsed" ]; then
+            local ts=$(echo "$parsed" | cut -f1)
+            local cat=$(echo "$parsed" | cut -f2)
+            local prov=$(echo "$parsed" | cut -f3)
+            local model=$(echo "$parsed" | cut -f4)
+            local cost=$(echo "$parsed" | cut -f5)
+            local est=$(echo "$parsed" | cut -f6)
+            [ "$est" = "true" ] && est="✓" || est=""
+            printf "%-20s %-12s %-12s %-25s %-10s %s\n" "$ts" "$cat" "$prov" "$model" "$cost" "$est"
+            total=$(echo "$total + $cost" | bc 2>/dev/null || echo "0")
+        fi
+    done
+    
+    local total_cost=$(tail -n "$num" "$LEDGER_FILE" | jq -s 'map(.cost_usd) | add' 2>/dev/null)
+    echo ""
+    echo "Total cost (last $num entries): \$${total_cost:-0}"
+}
+
+cmd_dashboard() {
+    echo "╔${SEP}╗"
+    echo "║${BOLD}                    LLM ROUTER DASHBOARD - Daily Check${RESET}                                     ║"
+    echo "╚${SEP}╝"
+    echo ""
+    
+    echo "▶ Syncing transcript usage..."
+    cmd_sync | jq -c '{status, stats}'
+    echo ""
+    
+    echo "▶ Recent ledger entries (last 10):"
+    echo "$SEP"
+    cmd_ledger 10
+    echo ""
+    
+    echo "▶ Status history (last 3 snapshots):"
+    echo "$SEP"
+    cmd_log 3
+    echo ""
+    
+    echo "▶ Current budget status:"
+    echo "$SEP"
+    cmd_status
+    echo ""
+    
+    echo "${SEP//─/═}"
+    echo "           Done. Run 'llm-router dashboard' anytime for this full view."
+    echo "${SEP//─/═}"
+}
+
+cmd_cron() {
+    local log_file="${LLM_ROUTER_CRON_LOG:-$HOME/llm-router-cron.log}"
+    exec >> "$log_file" 2>&1
+    
+    echo "[$(date -Iseconds)] Starting llm-router cron task"
+    
+    echo "[$(date -Iseconds)] Step 1: Importing transcripts..."
+    cd "$ROOT_DIR"
+    local result=$(echo '{"max_files":200}' | python3 -m src.main --import-openclaw-usage --stdin 2>&1)
+    local imported=$(echo "$result" | jq -r '.stats.events_appended // 0' 2>/dev/null || echo "0")
+    echo "[$(date -Iseconds)] Import complete: $imported events appended"
+    
+    echo "[$(date -Iseconds)] Step 2: Capturing status snapshot..."
+    {
+        echo "==== $(date -u +"%Y-%m-%dT%H:%M:%SZ") ===="
+        cmd_status
+        echo ""
+    } >> "$STATUS_LOG"
+    echo "[$(date -Iseconds)] Snapshot complete"
+    
+    # Trim log if too large
+    if [ -f "$STATUS_LOG" ]; then
+        local size=$(wc -c < "$STATUS_LOG")
+        if [ "$size" -gt 5000000 ]; then
+            tail -n 5000 "$STATUS_LOG" > "$STATUS_LOG.tmp"
+            mv "$STATUS_LOG.tmp" "$STATUS_LOG"
+            echo "[$(date -Iseconds)] Log trimmed to 5000 lines"
+        fi
+    fi
+    
+    echo "[$(date -Iseconds)] Cron task finished"
+    echo "---"
+}
+
+# ─────────────────────────────────────────────────────────────────────────────
+# MAIN
+# ─────────────────────────────────────────────────────────────────────────────
+
+main() {
+    local cmd="${1:-status}"
+    shift || true
+    
+    case "$cmd" in
+        help|--help|-h)       cmd_help ;;
+        version|--version)    cmd_version ;;
+        dashboard)            cmd_dashboard ;;
+        status|st)            cmd_status ;;
+        status-raw|raw)       cmd_status_raw ;;
+        log|history)          cmd_log "$@" ;;
+        ledger|entries)       cmd_ledger "$@" ;;
+        sync|import)          cmd_sync ;;
+        cron)                 cmd_cron ;;
+        *)
+            echo "Unknown command: $cmd" >&2
+            echo "Run 'llm-router help' for available commands" >&2
+            exit 1
+            ;;
+    esac
+}
+
+main "$@"
