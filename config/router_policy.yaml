@@ -16,13 +16,25 @@ last_updated: "2026-02-07"
 # Globally Disabled Models
 # These models exist in the catalog but will never be selected
 # ============================================================================
-disabled_models: []
-  # Examples (uncomment to disable):
-  # - ollama/glm-4.6          # Underperforms for your use case
-  # - ollama/glm-4.7          # Redundant with better alternatives
-  # - anthropic/claude-opus-4 # Too expensive ($75/M output)
-  # - openai/gpt-5.2-pro      # Way too expensive ($168/M output)
-  # - openai/o1               # Expensive reasoning ($60/M output)
+disabled_models:
+  # === NOT AVAILABLE IN LOCAL OLLAMA ===
+  # These models are in the catalog but not actually pulled/available
+  - ollama/kimi-k2
+  - ollama/kimi-k2-thinking
+  - ollama/qwen3-coder
+  - ollama/qwen3-next
+  - ollama/qwen3-vl
+  - ollama/glm-4.6
+  - ollama/glm-4.7
+  - ollama/gemini-3-pro-preview
+  - ollama/deepseek-r1
+  - ollama/devstral-small-2
+  - ollama/cogito-2.1
+  - ollama/nemotron-3-nano
+  # === EXPENSIVE MODELS (keep disabled) ===
+  - anthropic/claude-opus-4
+  - openai/gpt-5.2-pro
+  - openai/o1
 
 # ============================================================================
 # Globally Disabled Providers

@@ -121,6 +121,7 @@ class OllamaCliBackend:
                 capture_output=True,
                 text=True,
                 env=env,
+                timeout=30,  # Add timeout to prevent hanging on CLI
             )
 
             # If CLI fails, try API mode
