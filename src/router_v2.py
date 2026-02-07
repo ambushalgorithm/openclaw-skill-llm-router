@@ -67,6 +67,7 @@ class RoutingRequest:
     max_cost_per_1k: Optional[float] = None  # manual budget override
     exclude_quota_limited: bool = True  # skip OpenAI if True
     exclude_models: Optional[Set[str]] = None  # per-request exclusions
+    cost_optimized: bool = False  # Prefer cheaper models (MiniMax over Kimi)
 
 
 @dataclass
@@ -996,7 +997,14 @@ class Router:
             exclusions.update(cat_policy["exclude_models"])
         
         # Determine preferred models order
-        preferred_order = cat_policy.get("preferred_models", [])
+        base_preferred = cat_policy.get("preferred_models", [])
+        
+        # Option D: Smart tier-based model selection
+        # When cost_optimized, use cheaper models for lower tiers
+        if request.cost_optimized and base_preferred:
+            preferred_order = self._get_tier_preferred_order(base_preferred, tier)
+        else:
+            preferred_order = base_preferred
         
         # Determine quota-limited exclusion
         exclude_quota = request.exclude_quota_limited
@@ -1050,6 +1058,41 @@ class Router:
         reason = self._build_reason(selected, len(matches), tier, fallback_reason)
         
         return self._build_result(selected, tier, confidence, signals, len(matches), reason, category)
+    
+    def _get_tier_preferred_order(self, base_order: List[str], tier: str) -> List[str]:
+        """Reorder preferred models based on tier for cost optimization.
+        
+        Strategy:
+        - SIMPLE/MEDIUM: Prefer MiniMax (cheap, capable)
+        - COMPLEX/REASONING: Prefer Kimi (best capabilities)
+        """
+        if not base_order:
+            return base_order
+        
+        # Define model tiers by capability/cost
+        premium_models = ["ollama/kimi-k2.5:cloud"]  # Best but expensive
+        cheap_models = [
+            "ollama/minimax-m2",
+            "ollama/minimax-m2.1",
+            "ollama/deepseek-v3.2",
+            "ollama/qwen3-coder",
+        ]  # Half the cost, still capable
+        
+        if tier in ["SIMPLE", "MEDIUM"]:
+            # For simpler tasks: Cheap first, then premium
+            reordered = []
+            # Add cheap models that are in base_order (preserve their relative order)
+            for model in base_order:
+                if model in cheap_models:
+                    reordered.append(model)
+            # Add remaining models from base_order
+            for model in base_order:
+                if model not in reordered:
+                    reordered.append(model)
+            return reordered
+        else:
+            # For complex tasks: Keep original order (premium first)
+            return base_order
     
     def _get_default_tier(self) -> TierType:
         """Get default tier when classification is ambiguous."""
