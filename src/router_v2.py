@@ -823,16 +823,18 @@ class Router:
         coding_signals = ["code", "build", "implement", "create", "debug", "fix", "script", "def ", "function"]
         code_score = sum(1 for kw in coding_signals if kw in signal_str or kw in text)
         
-        # Boost for explicit programming terms (even without classifier code signal)
+        # Boost for explicit programming terms
         prog_terms = ["python", "javascript", "error", "exception", "keyerror", "typeerror", 
-                      "traceback", "import ", "class ", "def ", "function", "variable"]
+                      "traceback", "import ", "class ", "def ", "function", "variable",
+                      "api", "database", "schema", "migration", "websocket", "redis", "ci/cd"]
         code_score += sum(0.5 for kw in prog_terms if kw in text)
         
-        # Brain signals: technical terms + explain/analyze/why patterns
+        # Brain signals: technical terms + explain/analyze/why/how patterns
         brain_signals = [
             "technical", "strategy", "correlation", "skew", "volatility", "sharpe",
             "futures", "btc", "gold", "es", "nq", "fed", "fomc", "inflation",
-            "explain", "analyze", "why", "how does", "compare",
+            "explain", "analyze", "why", "how does", "compare", "how do we", "should we",
+            "architecture", "structure", "design", "system",
         ]
         brain_score = sum(1 for kw in brain_signals if kw in signal_str or kw in text)
         
@@ -846,16 +848,54 @@ class Router:
         code_score += sum(1.0 for kw in pine_terms if kw in text)
         
         # Web search signals
-        web_signals = ["search", "look up", "latest", "news", "current"]
+        web_signals = ["search", "look up", "latest", "news", "current", "competitor"]
         web_score = sum(1 for kw in web_signals if kw in text)
         
         # Image signals
         image_signals = ["image", "picture", "photo", "diagram", "chart vision"]
         image_score = sum(1 for kw in image_signals if kw in text)
         
-        # Writing signals
-        writing_signals = ["write", "draft", "compose", "email", "blog"]
+        # Writing/Marketing signals
+        writing_signals = [
+            "write", "draft", "compose", "email", "blog", "landing page", "headline",
+            "ad copy", "case study", "press release", "content", "announce",
+        ]
         writing_score = sum(1 for kw in writing_signals if kw in text)
+        
+        # Legal/Compliance signals
+        legal_signals = [
+            "gdpr", "terms of service", "privacy policy", "compliance", "disclosure",
+            "sec", "cftc", "liable", "liability", "sla", "audit", "records",
+            "investment advice", "marketing rule", "cookie consent",
+        ]
+        # Legal tends to need more analysis/coding - route to appropriate category
+        legal_score = sum(1 for kw in legal_signals if kw in text)
+        if legal_score >= 2:
+            # Legal analysis questions go to Brain
+            if any(p in text for p in ["what", "how", "explain", "constitutes", "are we"]):
+                brain_score += legal_score
+            # Legal drafting goes to Writing
+            if any(p in text for p in ["draft", "write", "update", "review"]):
+                writing_score += legal_score
+        
+        # Finance/Operations signals - often need analysis
+        finance_signals = [
+            "revenue", "cash flow", "burn rate", "ltv", "cac", "cohort",
+            "unit economics", "runway", "profitability", "calculate", "model",
+            "project", "analyze costs",
+        ]
+        finance_score = sum(1 for kw in finance_signals if kw in text)
+        brain_score += finance_score * 0.5  # Boost brain for finance analysis
+        
+        # Support/Customer success signals
+        support_signals = [
+            "help article", "troubleshooting", "customer", "onboarding",
+            "response", "complaint", "explain", "apology", "survey",
+            "feature request", "confused",
+        ]
+        support_score = sum(1 for kw in support_signals if kw in text)
+        writing_score += support_score * 0.5  # Support content often writing
+        brain_score += support_score * 0.5    # But analysis questions are brain
         
         # Pick the best match
         scores = [
@@ -867,9 +907,15 @@ class Router:
         ]
         best = max(scores, key=lambda x: x[1])
         
-        # Lower threshold (1 match) if technical domain detected
+        # Lower threshold for broader detection
+        # Technical domain detected → very low threshold
         tech_detected = any(s in signal_str for s in ["technical", "code", "reasoning"])
-        threshold = 1 if tech_detected else 2
+        if tech_detected:
+            threshold = 0.5  # Very low for technical
+        elif best[0] in ["Brain", "Coding"] and best[1] >= 1:
+            threshold = 0.8  # Lower threshold for brain/coding
+        else:
+            threshold = 1.5  # Slightly lower default
         
         if best[1] >= threshold:
             return best[0]
