@@ -77,7 +77,7 @@ cmd_version() {
 
 cmd_sync() {
     cd "$ROOT_DIR"
-    echo '{"max_files":200}' | python3 -m src.main --import-openclaw-usage --stdin 2>&1 | jq
+    echo '{"max_files":200}' | python3 -m src.main --import-openclaw-usage | jq
 }
 
 cmd_status() {
