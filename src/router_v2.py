@@ -162,8 +162,8 @@ DEFAULT_MODEL_CATALOG = {
                 },
                 
                 # DeepSeek Family
-                "deepseek-v3.2": {
-                    "name": "DeepSeek V3.2",
+                "deepseek-v3.2:cloud": {
+                    "name": "DeepSeek V3.2 Cloud",
                     "costs": {"input_per_1k": 0.00028, "output_per_1k": 0.00042},
                     "capabilities": {"chat": True, "code": True, "reasoning": False, "vision": False, "long_context": False, "function_calling": True, "json_mode": True},
                     "context_window": 128000,
@@ -171,8 +171,8 @@ DEFAULT_MODEL_CATALOG = {
                     "reliability": 0.85,
                     "tags": ["cheap", "fast", "code", "efficient", "cloud"],
                 },
-                "deepseek-v3.1": {
-                    "name": "DeepSeek V3.1 Terminus",
+                "deepseek-v3.1:671b-cloud": {
+                    "name": "DeepSeek V3.1 671B Cloud",
                     "costs": {"input_per_1k": 0.0006, "output_per_1k": 0.0017},
                     "capabilities": {"chat": True, "code": True, "reasoning": True, "vision": False, "long_context": False, "function_calling": True, "json_mode": True, "thinking": True},
                     "context_window": 128000,
@@ -180,28 +180,10 @@ DEFAULT_MODEL_CATALOG = {
                     "reliability": 0.85,
                     "tags": ["cheap", "code", "thinking", "hybrid", "cloud"],
                 },
-                "deepseek-r1": {
-                    "name": "DeepSeek R1",
-                    "costs": {"input_per_1k": 0.003, "output_per_1k": 0.007},
-                    "capabilities": {"chat": True, "code": True, "reasoning": True, "vision": False, "long_context": False, "function_calling": False, "json_mode": True, "thinking": True},
-                    "context_window": 128000,
-                    "max_output": 8192,
-                    "reliability": 0.86,
-                    "tags": ["reasoning", "thinking", "expensive", "cloud"],
-                },
                 
-                # Qwen Family (Alibaba)
-                "qwen3-coder": {
-                    "name": "Qwen3 Coder",
-                    "costs": {"input_per_1k": 0.0005, "output_per_1k": 0.0012},
-                    "capabilities": {"chat": True, "code": True, "reasoning": False, "vision": False, "long_context": False, "function_calling": True, "json_mode": True},
-                    "context_window": 128000,
-                    "max_output": 4096,
-                    "reliability": 0.87,
-                    "tags": ["code", "cheap", "cloud"],
-                },
-                "qwen3-coder-next": {
-                    "name": "Qwen3 Coder Next",
+                # Qwen Family (Alibaba) - Cloud available
+                "qwen3-coder-next:cloud": {
+                    "name": "Qwen3 Coder Next Cloud",
                     "costs": {"input_per_1k": 0.0005, "output_per_1k": 0.0012},
                     "capabilities": {"chat": True, "code": True, "reasoning": False, "vision": False, "long_context": False, "function_calling": True, "json_mode": True, "agentic": True},
                     "context_window": 128000,
@@ -209,37 +191,10 @@ DEFAULT_MODEL_CATALOG = {
                     "reliability": 0.87,
                     "tags": ["code", "agentic", "cheap", "cloud"],
                 },
-                "qwen3-vl": {
-                    "name": "Qwen3 VL",
-                    "costs": {"input_per_1k": 0.0005, "output_per_1k": 0.0015},
-                    "capabilities": {"chat": True, "code": True, "reasoning": False, "vision": True, "long_context": False, "function_calling": True, "json_mode": True},
-                    "context_window": 128000,
-                    "max_output": 4096,
-                    "reliability": 0.86,
-                    "tags": ["vision", "code", "multimodal", "cloud"],
-                },
-                "qwen3-next": {
-                    "name": "Qwen3 Next",
-                    "costs": {"input_per_1k": 0.00015, "output_per_1k": 0.0015},
-                    "capabilities": {"chat": True, "code": True, "reasoning": True, "vision": False, "long_context": False, "function_calling": True, "json_mode": True},
-                    "context_window": 128000,
-                    "max_output": 4096,
-                    "reliability": 0.88,
-                    "tags": ["balanced", "efficient", "cloud"],
-                },
                 
-                # Google Gemini Family
-                "gemini-3-pro-preview": {
-                    "name": "Gemini 3 Pro Preview",
-                    "costs": {"input_per_1k": 0.00125, "output_per_1k": 0.005},
-                    "capabilities": {"chat": True, "code": True, "reasoning": True, "vision": True, "long_context": True, "function_calling": True, "json_mode": True, "agentic": True},
-                    "context_window": 1050000,
-                    "max_output": 65536,
-                    "reliability": 0.90,
-                    "tags": ["long_context", "vision", "reasoning", "powerful", "cloud"],
-                },
-                "gemini-3-flash-preview": {
-                    "name": "Gemini 3 Flash Preview",
+                # Google Gemini Family - Cloud available
+                "gemini-3-flash-preview:cloud": {
+                    "name": "Gemini 3 Flash Preview Cloud",
                     "costs": {"input_per_1k": 0.00015, "output_per_1k": 0.0006},
                     "capabilities": {"chat": True, "code": True, "reasoning": False, "vision": True, "long_context": True, "function_calling": True, "json_mode": True},
                     "context_window": 1000000,
@@ -248,29 +203,9 @@ DEFAULT_MODEL_CATALOG = {
                     "tags": ["cheap", "fast", "long_context", "vision", "cloud"],
                 },
                 
-                # GLM Family (Zhipu AI)
-                "glm-4.7": {
-                    "name": "GLM 4.7",
-                    "costs": {"input_per_1k": 0.00045, "output_per_1k": 0.002},
-                    "capabilities": {"chat": True, "code": True, "reasoning": True, "vision": False, "long_context": False, "function_calling": True, "json_mode": True},
-                    "context_window": 128000,
-                    "max_output": 4096,
-                    "reliability": 0.86,
-                    "tags": ["code", "balanced", "cloud"],
-                },
-                "glm-4.6": {
-                    "name": "GLM 4.6",
-                    "costs": {"input_per_1k": 0.0002, "output_per_1k": 0.0011},
-                    "capabilities": {"chat": True, "code": True, "reasoning": True, "vision": False, "long_context": False, "function_calling": True, "json_mode": True, "agentic": True},
-                    "context_window": 128000,
-                    "max_output": 4096,
-                    "reliability": 0.85,
-                    "tags": ["cheap", "agentic", "cloud"],
-                },
-                
-                # Mistral / Ministral Family
-                "ministral-3": {
-                    "name": "Ministral 3",
+                # Mistral / Ministral Family (Ollama Cloud tags)
+                "ministral-3:14b-cloud": {
+                    "name": "Ministral 3 14B Cloud",
                     "costs": {"input_per_1k": 0.0001, "output_per_1k": 0.0003},
                     "capabilities": {"chat": True, "code": True, "reasoning": False, "vision": True, "long_context": False, "function_calling": True, "json_mode": True},
                     "context_window": 128000,
@@ -279,9 +214,9 @@ DEFAULT_MODEL_CATALOG = {
                     "tags": ["cheap", "fast", "vision", "edge", "cloud"],
                 },
                 
-                # MiniMax Family
-                "minimax-m2": {
-                    "name": "MiniMax M2",
+                # MiniMax Family - Cloud available
+                "minimax-m2:cloud": {
+                    "name": "MiniMax M2 Cloud",
                     "costs": {"input_per_1k": 0.0003, "output_per_1k": 0.0012},
                     "capabilities": {"chat": True, "code": True, "reasoning": True, "vision": False, "long_context": False, "function_calling": True, "json_mode": True},
                     "context_window": 128000,
@@ -289,8 +224,8 @@ DEFAULT_MODEL_CATALOG = {
                     "reliability": 0.85,
                     "tags": ["code", "efficient", "cloud"],
                 },
-                "minimax-m2.1": {
-                    "name": "MiniMax M2.1",
+                "minimax-m2.1:cloud": {
+                    "name": "MiniMax M2.1 Cloud",
                     "costs": {"input_per_1k": 0.0003, "output_per_1k": 0.0012},
                     "capabilities": {"chat": True, "code": True, "reasoning": True, "vision": False, "long_context": False, "function_calling": True, "json_mode": True},
                     "context_window": 256000,
@@ -298,19 +233,10 @@ DEFAULT_MODEL_CATALOG = {
                     "reliability": 0.86,
                     "tags": ["code", "multilingual", "cloud"],
                 },
-                
-                # Devstral Family (Mistral for coding)
-                "devstral-small-2": {
-                    "name": "Devstral Small 2",
-                    "costs": {"input_per_1k": 0.0005, "output_per_1k": 0.0015},
-                    "capabilities": {"chat": True, "code": True, "reasoning": False, "vision": True, "long_context": False, "function_calling": True, "json_mode": True, "agentic": True},
-                    "context_window": 128000,
-                    "max_output": 4096,
-                    "reliability": 0.87,
-                    "tags": ["code", "agentic", "vision", "cloud"],
-                },
-                "devstral-2": {
-                    "name": "Devstral 2",
+
+                # Devstral Family (Mistral for coding) - Cloud available
+                "devstral-2:123b-cloud": {
+                    "name": "Devstral 2 123B Cloud",
                     "costs": {"input_per_1k": 0.0008, "output_per_1k": 0.0025},
                     "capabilities": {"chat": True, "code": True, "reasoning": True, "vision": False, "long_context": False, "function_calling": True, "json_mode": True, "agentic": True},
                     "context_window": 128000,
@@ -318,34 +244,16 @@ DEFAULT_MODEL_CATALOG = {
                     "reliability": 0.88,
                     "tags": ["code", "agentic", "powerful", "cloud"],
                 },
-                
-                # Specialized Models
-                "cogito-2.1": {
-                    "name": "Cogito 2.1",
-                    "costs": {"input_per_1k": 0.00018, "output_per_1k": 0.00059},
-                    "capabilities": {"chat": True, "code": True, "reasoning": True, "vision": False, "long_context": False, "function_calling": True, "json_mode": True},
-                    "context_window": 128000,
-                    "max_output": 4096,
-                    "reliability": 0.85,
-                    "tags": ["cheap", "balanced", "mit_license", "cloud"],
-                },
-                "rnj-1": {
-                    "name": "Rnj-1",
+
+                # RNJ Family - Cloud available
+                "rnj-1:8b-cloud": {
+                    "name": "Rnj-1 8B Cloud",
                     "costs": {"input_per_1k": 0.0004, "output_per_1k": 0.0012},
                     "capabilities": {"chat": True, "code": True, "reasoning": True, "vision": False, "long_context": False, "function_calling": True, "json_mode": True},
                     "context_window": 128000,
                     "max_output": 4096,
                     "reliability": 0.86,
                     "tags": ["code", "stem", "efficient", "cloud"],
-                },
-                "nemotron-3-nano": {
-                    "name": "Nemotron 3 Nano",
-                    "costs": {"input_per_1k": 0.0003, "output_per_1k": 0.0012},
-                    "capabilities": {"chat": True, "code": True, "reasoning": True, "vision": False, "long_context": False, "function_calling": True, "json_mode": True, "agentic": True},
-                    "context_window": 128000,
-                    "max_output": 4096,
-                    "reliability": 0.87,
-                    "tags": ["agentic", "efficient", "cloud"],
                 },
             },
         },
