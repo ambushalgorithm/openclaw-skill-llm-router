@@ -119,15 +119,24 @@ The `status` command supports three view modes for cost tracking:
 **Real mode (`--real`):**
 - Shows actual API costs only
 - Ollama shows $0 (subscription-based)
-- Use case: "What did I actually spend?"
+- Use case: "What did I actually spend?" (true P&L)
 
 **Normalized mode (`--normalized`):**
-- Applies estimated rates to all providers uniformly
-- Ollama: $0.0001/$0.0002 per 1K tokens (market estimate)
-- OpenAI/Codex: Actual rates from provider pricing
-- Use case: "Should I use Ollama or Codex?"
+- Applies provider rates to all models uniformly for cost comparison
+- Use case: "Should I use Ollama or Codex for this workload?"
 
-Rates are cached in `~/.llm-router-rates.json`. Update with `python3 -m src.pricing`.
+**Rate sources:**
+- **OpenAI/Codex:** Direct from provider (gpt-5.2: $0.005/$0.015 per 1K)
+- **Anthropic:** Direct from provider (claude-sonnet-4-5: $0.003/$0.015 per 1K)
+- **Ollama Cloud:** Sourced from provider APIs — Together AI, Fireworks.ai, DeepSeek direct
+  - Kimi K2.5: $0.00050/$0.00280 per 1K (Together AI)
+  - DeepSeek V3.2: $0.00028/$0.00042 per 1K (DeepSeek direct)
+  - Qwen3: $0.00050/$0.00120 per 1K (Together AI)
+  - Note: Ollama Cloud is subscription-based; these rates enable cost benchmarking
+
+**Rates file:** `config/rates.json` (in repo, version controlled)
+- Override via `LLM_ROUTER_RATES_PATH` environment variable
+- Update command: `python3 -m src.pricing` (regenerates from hardcoded values)
 
 ### Convenience aliases
 
@@ -216,8 +225,9 @@ Typical environment variables:
   - `LLM_ROUTER_DEFAULT_CATEGORY="Brain"`
   - `LLM_SKILL_MAX_TOKENS=4000`
 - Unified usage tracking:
-  - `LLM_ROUTER_LEDGER_PATH` — JSONL event ledger path (default: `~/.llm-router-ledger.jsonl`).
-  - `LLM_ROUTER_TZ` — timezone used for "today" totals in `--status` (default: `America/Bogota`).
+  - `LLM_ROUTER_LEDGER_PATH` — JSONL event ledger path (default: `~/.llm-router-ledger.jsonl`)
+  - `LLM_ROUTER_RATES_PATH` — Provider rates JSON path (default: `config/rates.json` in repo)
+  - `LLM_ROUTER_TZ` — timezone used for "today" totals in `--status` (default: `America/Bogota`)
 
 The concrete environment variable names and supported backends are defined in this repo's `src/` implementation.
 
