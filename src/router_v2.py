@@ -834,6 +834,7 @@ class Router:
             "futures", "btc", "gold", "es", "nq", "fed", "fomc", "inflation",
             "explain", "analyze", "why", "how does", "compare",
         ]
+        brain_score = sum(1 for kw in brain_signals if kw in signal_str or kw in text)
         
         # How-to/how do I questions about tech tend to be Brain category
         if "how do i " in text or "how to " in text:
@@ -843,7 +844,6 @@ class Router:
         # Coding: Pine Script, TradingView, backtesting are all code
         pine_terms = ["pine script", "tradingview", "backtest", "backtesting", "indicator"]
         code_score += sum(1.0 for kw in pine_terms if kw in text)
-        brain_score = sum(1 for kw in brain_signals if kw in signal_str or kw in text)
         
         # Web search signals
         web_signals = ["search", "look up", "latest", "news", "current"]
