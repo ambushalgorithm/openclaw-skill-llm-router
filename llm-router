@@ -15,18 +15,18 @@
 
 set -euo pipefail
 
-VERSION="0.2.0"
+VERSION="0.2.1"
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 LEDGER_FILE="${LLM_ROUTER_LEDGER_PATH:-$HOME/.llm-router-ledger.jsonl}"
 STATUS_LOG="${LLM_ROUTER_STATUS_LOG:-$HOME/.llm-router-status.log}"
 
 # Colors (disable if not tty)
 if [ -t 1 ]; then
-    BOLD='\033[1m'
-    DIM='\033[2m'
-    RESET='\033[0m'
+    BOLD=$'\033[1m'
+    DIM=$'\033[2m'
+    RESET=$'\033[0m'
 else
-    BOLD='' DIM='' RESET=''
+    BOLD=''; DIM=''; RESET=''
 fi
 
 # Header separator width (matches ledger table)
@@ -94,7 +94,7 @@ cmd_status() {
     }
     {
         used=$2+0; limit=$3+0; rem=$4+0; pct=$5+0;
-        printf "%-22s \$%-11.3f \$%-11.3f \$%-13.3f %.3f%%\n", $1, used, limit, rem, pct
+        printf "%-22s $%-11.3f $%-11.3f $%-13.3f %.3f%%\n", $1, used, limit, rem, pct
     }'
 }
 
@@ -105,38 +105,39 @@ cmd_status_raw() {
 
 cmd_log() {
     local num="${1:-10}"
+    local status_log="${STATUS_LOG:-$HOME/.llm-router-status.log}"
     
-    if [ ! -f "$STATUS_LOG" ]; then
-        echo "No status log found at $STATUS_LOG" >&2
+    if [ ! -f "$status_log" ]; then
+        echo "No status log found at $status_log" >&2
         echo "Run: llm-router cron (or wait for cron to populate)" >&2
-        exit 1
+        return 0
     fi
     
     # Count total snapshots and show last N
-    local total=$(grep -c '^====' "$STATUS_LOG" 2>/dev/null || echo 0)
+    local total=$(grep -c '^====' "$status_log" 2>/dev/null || echo 0)
     local start=$((total - num + 1))
     [ "$start" -lt 1 ] && start=1
     
     local current=0
     while IFS= read -r line; do
-        [[ "$line" =~ ^==== ]] && ((current++))
-        [ "$current" -ge "$start" ] && echo "$line"
-    done < "$STATUS_LOG"
+        [[ "$line" =~ ^==== ]] && current=$((current + 1))
+        [ "$current" -ge "$start" ] && printf '%s\n' "$line"
+    done < "$status_log"
 }
 
 cmd_ledger() {
     local num="${1:-20}"
+    local ledger_file="${LEDGER_FILE:-$HOME/.llm-router-ledger.jsonl}"
     
-    if [ ! -f "$LEDGER_FILE" ]; then
-        echo "No ledger found at $LEDGER_FILE"
-        exit 1
+    if [ ! -f "$ledger_file" ]; then
+        echo "No ledger found at $ledger_file"
+        return 0
     fi
     
     printf "%-20s %-12s %-12s %-25s %-10s %s\n" "Timestamp" "Category" "Provider" "Model" "Cost(USD)" "Estimate"
     printf "%s\n" "$SEP"
     
-    local total=0
-    tail -n "$num" "$LEDGER_FILE" | while read -r line; do
+    tail -n "$num" "$ledger_file" | while read -r line; do
         local parsed=$(echo "$line" | jq -r '[.ts_ms, .category, .provider, .model, .cost_usd, .is_estimate] | @tsv' 2>/dev/null)
         if [ -n "$parsed" ]; then
             local ts=$(echo "$parsed" | cut -f1)
@@ -147,19 +148,17 @@ cmd_ledger() {
             local est=$(echo "$parsed" | cut -f6)
             [ "$est" = "true" ] && est="✓" || est=""
             printf "%-20s %-12s %-12s %-25s %-10s %s\n" "$ts" "$cat" "$prov" "$model" "$cost" "$est"
-            total=$(echo "$total + $cost" | bc 2>/dev/null || echo "0")
         fi
     done
     
-    local total_cost=$(tail -n "$num" "$LEDGER_FILE" | jq -s 'map(.cost_usd) | add' 2>/dev/null)
-    echo ""
-    echo "Total cost (last $num entries): \$${total_cost:-0}"
+    local total_cost=$(tail -n "$num" "$ledger_file" | jq -s 'map(.cost_usd) | add' 2>/dev/null)
+    printf "\nTotal cost (last %s entries): \$%s\n" "$num" "${total_cost:-0}"
 }
 
 cmd_dashboard() {
-    echo "╔${SEP}╗"
-    echo "║${BOLD}                    LLM ROUTER DASHBOARD - Daily Check${RESET}                                     ║"
-    echo "╚${SEP}╝"
+    printf "╔%s╗\n" "$SEP"
+    printf "║%s                    LLM ROUTER DASHBOARD - Daily Check%s                                     ║\n" "$BOLD" "$RESET"
+    printf "╚%s╝\n" "$SEP"
     echo ""
     
     echo "▶ Syncing transcript usage..."
@@ -181,13 +180,15 @@ cmd_dashboard() {
     cmd_status
     echo ""
     
-    echo "${SEP//─/═}"
-    echo "           Done. Run 'llm-router dashboard' anytime for this full view."
-    echo "${SEP//─/═}"
+    local double_sep="${SEP//─/═}"
+    printf "%s\n" "$double_sep"
+    printf "           Done. Run 'llm-router dashboard' anytime for this full view.\n"
+    printf "%s\n" "$double_sep"
 }
 
 cmd_cron() {
     local log_file="${LLM_ROUTER_CRON_LOG:-$HOME/llm-router-cron.log}"
+    local status_log="${STATUS_LOG:-$HOME/.llm-router-status.log}"
     exec >> "$log_file" 2>&1
     
     echo "[$(date -Iseconds)] Starting llm-router cron task"
@@ -203,15 +204,15 @@ cmd_cron() {
         echo "==== $(date -u +"%Y-%m-%dT%H:%M:%SZ") ===="
         cmd_status
         echo ""
-    } >> "$STATUS_LOG"
+    } >> "$status_log"
     echo "[$(date -Iseconds)] Snapshot complete"
     
     # Trim log if too large
-    if [ -f "$STATUS_LOG" ]; then
-        local size=$(wc -c < "$STATUS_LOG")
+    if [ -f "$status_log" ]; then
+        local size=$(wc -c < "$status_log")
         if [ "$size" -gt 5000000 ]; then
-            tail -n 5000 "$STATUS_LOG" > "$STATUS_LOG.tmp"
-            mv "$STATUS_LOG.tmp" "$STATUS_LOG"
+            tail -n 5000 "$status_log" > "$status_log.tmp"
+            mv "$status_log.tmp" "$status_log"
             echo "[$(date -Iseconds)] Log trimmed to 5000 lines"
         fi
     fi
