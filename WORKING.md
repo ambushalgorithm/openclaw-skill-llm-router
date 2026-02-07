@@ -9,6 +9,7 @@ Active work tracker for the capability-aware router migration.
 - Created `router_v2.py` with capability-aware model selection
 - **41 models** in catalog: 22 Ollama (primary), 7 Anthropic (secondary), 12 OpenAI (quota-limited)
 - **Policy system** for controlling model availability per task type
+- **Router v2 wired into main skill** with legacy fallback
 
 ## Model Catalog (41 Models)
 
@@ -36,16 +37,29 @@ Active work tracker for the capability-aware router migration.
 | **Writing_Content** | Max $0.005/1K | kimi-k2.5, deepseek-v3.2 |
 | **Primary_LLM** | SIMPLE/MEDIUM only | None specified |
 
+## Step 2: Wire Router v2 into Main Skill ✅ COMPLETE
+
+**Changes:**
+- `main.py` now uses `route_with_fallback()` which tries v2 first
+- If v2 fails, automatically falls back to legacy `router_client.route()`
+- Explicit `Model=...` hints still use legacy (backwards compatibility)
+- `LLM_ROUTER_DISABLE_V1=1` forces legacy mode if needed
+- Added `--test-v2` flag for debugging
+
+**Test it:**
+```bash
+cd ~/Projects/openclaw-skill-llm-router
+
+# Test v2 routing
+python3 -m src.main --test-v2 "Build a Python function" Coding
+# → Router: Category=Coding
+# → Tier=COMPLEX, model=ollama/kimi-k2.5
+
+# Full request (requires Ollama running)
+echo '{"category": "Coding", "messages": [{"role": "user", "content": "Hello"}]}' | python3 -m src.main
+```
+
 ## Next Steps
-
-### Step 2: Wire Router v2 into Main Skill 🔄 IN PROGRESS
-
-Replace `router_core.py` calls with `router_v2.py`:
-
-- [ ] Update `src/main.py` to use `Router` instead of `router_client.route()`
-- [ ] Add fallback to legacy router if v2 fails
-- [ ] Update backend adapters to accept `RoutingResult` format
-- [ ] Test end-to-end flow: classify → select → dispatch → response
 
 ### Step 3: Tune Classification Aggressiveness ⏳ Pending
 
@@ -76,6 +90,7 @@ $ python3 router_v2.py "Describe this image" --category Image_Understanding
 
 - [ ] Update `router_core.status_summary()` to show capability-based selection stats
 - [ ] Add `--why` flag to show classification signals for last request
+- [ ] Track % of requests using v2 vs legacy
 - [ ] Track model selection by tier over time
 
 ### Step 5: Documentation & Cleanup ⏳ Pending
@@ -83,26 +98,32 @@ $ python3 router_v2.py "Describe this image" --category Image_Understanding
 - [ ] Update `SKILL.md` with new router v2 architecture
 - [ ] Remove `model_routing.csv` (archive to `.legacy/`)
 - [ ] Clean up `rates.json` vs `config/models.yaml` (decide which to keep)
-- [ ] Update CLI aliases in shell configs
+- [ ] Update shell aliases
+- [ ] Deprecate `router_core.py` after v2 proves stable
 
 ## Testing Commands
 
 ```bash
+cd ~/Projects/openclaw-skill-llm-router
+
+# Test v2 routing only
+python3 -m src.main --test-v2 "Your prompt" Coding
+
 # List all available models
-cd ~/Projects/openclaw-skill-llm-router/src && python3 router_v2.py --list-models
+python3 src/router_v2.py --list-models
 
-# Test single prompt routing
-cd ~/Projects/openclaw-skill-llm-router/src && python3 router_v2.py "Your prompt here"
-
-# Test with category override
-cd ~/Projects/openclaw-skill-llm-router/src && python3 router_v2.py "Your prompt" --category Coding
+# Test with category
+python3 src/router_v2.py "Your prompt here" --category Coding
 
 # Test policy constraints
-cd ~/Projects/openclaw-skill-llm-router/src && python3 router_v2.py "Analyze this" --category Image_Understanding
+python3 src/router_v2.py "Analyze this" --category Image_Understanding
+
+# Full end-to-end test (requires backend running)
+echo '{"category": "Heartbeat", "messages": [{"role": "user", "content": "Check status"}]}' | python3 -m src.main
 
 # Interactive test
-cd ~/Projects/openclaw-skill-llm-router/src && python3 -c "
-from router_v2 import Router, RoutingRequest
+python3 -c "
+from src.router_v2 import Router, RoutingRequest
 r = Router()
 for prompt, cat in [
     ('What is 2+2?', 'Heartbeat'),
@@ -136,6 +157,14 @@ Edit `config/router_policy.json` to customize:
 
 Then restart your OpenClaw gateway to reload.
 
+## Debug & Environment Variables
+
+| Variable | Purpose |
+|----------|---------|
+| `LLM_ROUTER_DEBUG=1` | Print debug info (v2 routing failures, etc.) |
+| `LLM_ROUTER_DISABLE_V2=1` | Force legacy router only |
+| `LLM_ROUTER_DEFAULT_CATEGORY` | Default category if not specified in request |
+
 ## Files Status
 
 | File | Purpose | Status |
@@ -143,7 +172,7 @@ Then restart your OpenClaw gateway to reload.
 | `src/router_v2.py` | Main router, 41 models, policy-aware | ✅ Complete |
 | `config/router_policy.json` | Category-specific restrictions | ✅ Complete |
 | `src/prompt_classifier/` | 14-dimension classifier | ✅ Complete |
-| `src/main.py` | Skill entry point - needs v2 wiring | 🔄 In Progress |
+| `src/main.py` | Skill entry point - v2 wired with fallback | ✅ Complete |
 | `config/models.yaml` | YAML catalog (redundant) | ⏳ Decide: keep or delete |
-| `src/router_core.py` | Legacy router | ⏳ Deprecate after v2 wired |
+| `src/router_core.py` | Legacy router | ⏳ Deprecate after v2 proves stable |
 | `SKILL.md` | Documentation | ⏳ Update |
