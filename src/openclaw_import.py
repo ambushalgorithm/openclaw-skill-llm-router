@@ -108,7 +108,8 @@ def iter_transcript_files(state_dir: Path, *, max_files: Optional[int] = None) -
 # Header formats we treat as canonical (first line of assistant message):
 #   Router: Category=<CategoryName>
 #   Direct (no router): Category=Primary LLM
-_ROUTER_CAT_RE = re.compile(r"(?m)^Router:\s*Category\s*=\s*([^\n|]+)")
+# Capture stops at newline, pipe, or Model= hint to avoid "Coding Model=..." bugs
+_ROUTER_CAT_RE = re.compile(r"(?m)^Router:\s*Category\s*=\s*([^\n|]+?)(?:\s+Model=|$)")
 _DIRECT_PRIMARY_RE = re.compile(
     r"(?mi)^Direct\s*\(no router\):\s*Category\s*=\s*Primary LLM\s*$",
 )
@@ -192,7 +193,7 @@ def _infer_category(text: str, agent_id: str, state_dir: Path) -> Optional[str]:
 
         m = _ROUTER_CAT_RE.search(text)
         if m:
-            cat = m.group(1).strip()
+            cat = m.group(1).strip().rstrip()
             # normalize common variants
             if cat.lower() in ("web", "websearch", "web search"):
                 return "Web Search"
